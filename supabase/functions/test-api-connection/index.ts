@@ -13,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Test API Connection function called')
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -24,7 +26,11 @@ serve(async (req) => {
     if (!service) {
       console.log('No service name provided')
       return new Response(
-        JSON.stringify({ error: 'Service name is required' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Service name is required',
+          data: null 
+        }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -35,8 +41,13 @@ serve(async (req) => {
     // Get the auth header to identify the user
     const authHeader = req.headers.get('authorization')
     if (!authHeader) {
+      console.log('No authorization header provided')
       return new Response(
-        JSON.stringify({ error: 'Authorization required' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Authorization required',
+          data: null 
+        }),
         { 
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -49,7 +60,11 @@ serve(async (req) => {
     if (authError || !user) {
       console.log('Auth error:', authError)
       return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Invalid authorization',
+          data: null 
+        }),
         { 
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -65,12 +80,31 @@ serve(async (req) => {
       .select('*')
       .eq('user_id', user.id)
       .eq('service_name', service)
-      .single()
+      .maybeSingle()
 
-    if (configError || !config) {
-      console.log('Config error:', configError, 'Found config:', !!config)
+    if (configError) {
+      console.log('Config error:', configError)
       return new Response(
-        JSON.stringify({ error: `No configuration found for ${service}` }),
+        JSON.stringify({ 
+          success: false,
+          message: `Database error: ${configError.message}`,
+          data: null 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (!config) {
+      console.log('No config found for service:', service)
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: `No configuration found for ${service}`,
+          data: null 
+        }),
         { 
           status: 404, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -88,10 +122,25 @@ serve(async (req) => {
         testResult = await testFitbitConnection(config)
         break
       case 'alexa':
-        testResult = await testAlexaConnection(config)
+        testResult = { 
+          success: false, 
+          message: 'Alexa connection test not implemented yet', 
+          data: null 
+        }
+        break
+      case 'google':
+        testResult = { 
+          success: false, 
+          message: 'Google connection test not implemented yet', 
+          data: null 
+        }
         break
       default:
-        testResult = { success: false, message: `Testing not implemented for ${service}`, data: null }
+        testResult = { 
+          success: false, 
+          message: `Testing not implemented for ${service}`, 
+          data: null 
+        }
     }
 
     console.log('Test result:', testResult)
@@ -120,11 +169,18 @@ serve(async (req) => {
 
 async function testFitbitConnection(config: any) {
   try {
+    console.log('Testing Fitbit connection...')
+    
     if (!config.access_token) {
-      return { success: false, message: 'No access token found for Fitbit', data: null }
+      return { 
+        success: false, 
+        message: 'No access token found for Fitbit. Please complete the OAuth flow first.', 
+        data: null 
+      }
     }
 
     // Test Fitbit API with user profile endpoint
+    console.log('Making request to Fitbit API...')
     const response = await fetch('https://api.fitbit.com/1/user/-/profile.json', {
       headers: {
         'Authorization': `Bearer ${config.access_token}`,
@@ -132,25 +188,48 @@ async function testFitbitConnection(config: any) {
       }
     })
 
+    console.log('Fitbit API response status:', response.status)
+
     if (response.status === 401) {
       // Token might be expired, try to refresh if we have a refresh token
       if (config.refresh_token) {
+        console.log('Access token expired, attempting to refresh...')
         const refreshResult = await refreshFitbitToken(config)
         if (refreshResult.success) {
-          return { success: true, message: 'Token refreshed and connection successful', data: refreshResult.data }
+          return { 
+            success: true, 
+            message: 'Token refreshed and connection successful', 
+            data: refreshResult.data 
+          }
         } else {
-          return { success: false, message: 'Access token expired and refresh failed', data: null }
+          return { 
+            success: false, 
+            message: 'Access token expired and refresh failed', 
+            data: null 
+          }
         }
       } else {
-        return { success: false, message: 'Access token expired and no refresh token available', data: null }
+        return { 
+          success: false, 
+          message: 'Access token expired and no refresh token available. Please re-authorize the app.', 
+          data: null 
+        }
       }
     }
 
     if (!response.ok) {
-      return { success: false, message: `Fitbit API error: ${response.status} ${response.statusText}`, data: null }
+      const errorText = await response.text()
+      console.log('Fitbit API error response:', errorText)
+      return { 
+        success: false, 
+        message: `Fitbit API error: ${response.status} ${response.statusText}`, 
+        data: null 
+      }
     }
 
     const data = await response.json()
+    console.log('Fitbit API success, user:', data.user?.displayName)
+    
     return { 
       success: true, 
       message: 'Fitbit connection successful', 
@@ -161,12 +240,19 @@ async function testFitbitConnection(config: any) {
     }
 
   } catch (error) {
-    return { success: false, message: `Fitbit connection failed: ${error.message}`, data: null }
+    console.error('Fitbit connection test error:', error)
+    return { 
+      success: false, 
+      message: `Fitbit connection failed: ${error.message}`, 
+      data: null 
+    }
   }
 }
 
 async function refreshFitbitToken(config: any) {
   try {
+    console.log('Attempting to refresh Fitbit token...')
+    
     const response = await fetch('https://api.fitbit.com/oauth2/token', {
       method: 'POST',
       headers: {
@@ -180,13 +266,15 @@ async function refreshFitbitToken(config: any) {
     })
 
     if (!response.ok) {
+      const errorText = await response.text()
+      console.log('Token refresh failed:', response.status, errorText)
       throw new Error(`Token refresh failed: ${response.status}`)
     }
 
     const tokenData = await response.json()
+    console.log('Token refresh successful')
     
-    // Update the config with new tokens (this would need to be implemented)
-    // For now, just return the success with token data
+    // Note: In a real implementation, you'd want to update the database with the new tokens
     return { 
       success: true, 
       data: { 
@@ -196,25 +284,7 @@ async function refreshFitbitToken(config: any) {
     }
 
   } catch (error) {
+    console.error('Token refresh error:', error)
     return { success: false, message: error.message }
-  }
-}
-
-async function testAlexaConnection(config: any) {
-  try {
-    if (!config.access_token) {
-      return { success: false, message: 'No access token found for Alexa', data: null }
-    }
-
-    // Test Alexa API - this would depend on what Alexa endpoints you're using
-    // For now, return a placeholder response
-    return { 
-      success: true, 
-      message: 'Alexa connection test not fully implemented yet', 
-      data: { status: 'placeholder' } 
-    }
-
-  } catch (error) {
-    return { success: false, message: `Alexa connection failed: ${error.message}`, data: null }
   }
 }
