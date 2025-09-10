@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,11 +11,32 @@ import RoutinesManager from '@/components/RoutinesManager';
 import ApiConfiguration from '@/components/ApiConfiguration';
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login');
+    }
+  }, [user, loading, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
+    navigate('/login');
   };
+
+  // Show loading or redirect to login
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Activity className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to login
+  }
 
   return (
     <div className="min-h-screen bg-background">

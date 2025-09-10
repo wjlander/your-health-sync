@@ -108,8 +108,17 @@ const ApiConfiguration = () => {
   };
 
   const saveConfig = async (serviceName: string, configData: any) => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, cannot save API config');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to save API configurations",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    console.log('Saving config for user:', user.id, 'service:', serviceName);
     setSaving(serviceName);
     try {
       const existingConfig = configs.find(c => c.service_name === serviceName);
@@ -138,6 +147,7 @@ const ApiConfiguration = () => {
         if (error) throw error;
       }
 
+      console.log(`${serviceName} configuration saved successfully`);
       toast({
         title: "Configuration Saved",
         description: `${serviceName} API configuration has been saved successfully`,
@@ -146,9 +156,10 @@ const ApiConfiguration = () => {
       fetchConfigs();
     } catch (error) {
       console.error('Error saving config:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       toast({
         title: "Save Failed",
-        description: `Failed to save ${serviceName} configuration`,
+        description: `Failed to save ${serviceName} configuration: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {
