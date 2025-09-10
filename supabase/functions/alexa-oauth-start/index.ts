@@ -96,6 +96,22 @@ serve(async (req) => {
       )
     }
 
+    // Check if this is an Alexa Skills Kit client ID vs Login with Amazon
+    const isAlexaSkillsKit = config.client_id.startsWith('amzn1.application-oa2-client')
+    
+    if (isAlexaSkillsKit) {
+      console.log('Detected Alexa Skills Kit client ID - using SMAPI flow')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Your Client ID appears to be for Alexa Skills Kit. For Alexa integration, you need a Login with Amazon application. Please create a Login with Amazon Security Profile at https://developer.amazon.com/loginwithamazon/console/site/lwa/overview.html instead.' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     // Set redirect URL if not set
     let redirectUrl = config.redirect_url
     if (!redirectUrl) {
