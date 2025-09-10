@@ -24,6 +24,7 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean | null
+          redirect_url: string | null
           refresh_token: string | null
           service_name: string
           updated_at: string | null
@@ -38,6 +39,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          redirect_url?: string | null
           refresh_token?: string | null
           service_name: string
           updated_at?: string | null
@@ -52,6 +54,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          redirect_url?: string | null
           refresh_token?: string | null
           service_name?: string
           updated_at?: string | null

@@ -75,7 +75,7 @@ const ApiConfiguration = () => {
             setFitbitConfig({
               client_id: config.client_id || '',
               client_secret: config.client_secret || '',
-              redirect_url: config.redirect_url || '',
+              redirect_url: (config as any).redirect_url || '',
             });
             break;
           case 'google':
