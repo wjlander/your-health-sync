@@ -202,13 +202,21 @@ const ApiConfiguration = () => {
       console.log('User:', user?.id);
       console.log('Fitbit config:', fitbitConfig);
       
-      const { data, error } = await supabase.functions.invoke('fitbit-oauth-start');
+      const result = await supabase.functions.invoke('fitbit-oauth-start');
       
-      console.log('OAuth response data:', data);
-      console.log('OAuth response error:', error);
+      console.log('Full invoke result:', result);
+      console.log('Result data:', result.data);
+      console.log('Result error:', result.error);
+      
+      const { data, error } = result;
       
       if (error) {
-        console.error('Supabase function error:', error);
+        console.error('Supabase function error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
       }
       
