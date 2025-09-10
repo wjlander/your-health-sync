@@ -92,9 +92,9 @@ const Dashboard = () => {
               <Users className="h-4 w-4" />
               <span>Users</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center space-x-2">
+          <TabsTrigger value="settings" className="flex items-center space-x-2">
               <Settings className="h-4 w-4" />
-              <span>API Settings</span>
+              <span>Settings</span>
             </TabsTrigger>
           </TabsList>
 
@@ -161,7 +161,9 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="settings">
-            <ApiConfiguration />
+            <div className="space-y-6">
+              <ApiConfiguration />
+            </div>
           </TabsContent>
         </Tabs>
       </main>

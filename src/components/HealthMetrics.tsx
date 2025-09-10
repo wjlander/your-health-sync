@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Activity, Heart, Moon, Footprints, Zap, RefreshCw } from 'lucide-react';
+import { Activity, Heart, Moon, Footprints, Zap, RefreshCw, Scale } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { UnitsType, convertWeight, convertTemperature, getWeightUnit, getTemperatureUnit } from './UnitsPreference';
 
 interface HealthData {
   id: string;
@@ -21,12 +22,33 @@ const HealthMetrics = () => {
   const [healthData, setHealthData] = useState<HealthData[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [userUnits, setUserUnits] = useState<UnitsType>('imperial');
 
   useEffect(() => {
     if (user) {
       fetchHealthData();
+      fetchUserUnits();
     }
   }, [user]);
+
+  const fetchUserUnits = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('units_preference')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      const units = (data?.units_preference as UnitsType) || 'imperial';
+      setUserUnits(units);
+    } catch (error) {
+      console.error('Error fetching units preference:', error);
+    }
+  };
 
   const fetchHealthData = async () => {
     if (!user) return;
@@ -83,12 +105,15 @@ const HealthMetrics = () => {
     switch (dataType) {
       case 'steps':
         return <Footprints className="h-5 w-5 text-health-primary" />;
-      case 'calories':
+      case 'calories-out':
+      case 'calories-in':
         return <Zap className="h-5 w-5 text-health-accent" />;
-      case 'heart_rate':
+      case 'heart-rate':
         return <Heart className="h-5 w-5 text-health-error" />;
       case 'sleep':
         return <Moon className="h-5 w-5 text-health-secondary" />;
+      case 'weight':
+        return <Scale className="h-5 w-5 text-health-primary" />;
       default:
         return <Activity className="h-5 w-5 text-health-primary" />;
     }
@@ -97,15 +122,18 @@ const HealthMetrics = () => {
   const getMetricColor = (dataType: string) => {
     switch (dataType) {
       case 'steps':
-        return 'bg-health-primary';
-      case 'calories':
-        return 'bg-health-accent';
-      case 'heart_rate':
-        return 'bg-health-error';
+        return 'bg-health-primary/10';
+      case 'calories-out':
+      case 'calories-in':
+        return 'bg-health-accent/10';
+      case 'heart-rate':
+        return 'bg-health-error/10';
       case 'sleep':
-        return 'bg-health-secondary';
+        return 'bg-health-secondary/10';
+      case 'weight':
+        return 'bg-health-primary/10';
       default:
-        return 'bg-health-primary';
+        return 'bg-health-primary/10';
     }
   };
 
@@ -155,41 +183,60 @@ const HealthMetrics = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(groupedData).map(([dataType, items]) => {
-            const latestItem = items[0];
-            const previousItem = items[1];
-            const change = previousItem
-              ? ((latestItem.value - previousItem.value) / previousItem.value) * 100
-              : 0;
+          {Object.entries(groupedData).map(([dataType, records]) => {
+            const latestRecord = records[0];
+            const previousRecord = records[1];
+            
+            let displayValue = latestRecord.value;
+            let displayUnit = latestRecord.unit;
+            
+            // Convert values based on user preference
+            if (dataType === 'weight' && displayUnit === 'lbs') {
+              displayValue = convertWeight(displayValue, 'imperial', userUnits);
+              displayUnit = getWeightUnit(userUnits);
+            } else if (dataType.includes('temperature')) {
+              // Assuming temperature data comes in Fahrenheit from Fitbit
+              displayValue = convertTemperature(displayValue, 'imperial', userUnits);
+              displayUnit = getTemperatureUnit(userUnits);
+            }
+            
+            const percentageChange = previousRecord 
+              ? ((latestRecord.value - previousRecord.value) / previousRecord.value * 100).toFixed(1)
+              : null;
 
             return (
-              <Card key={dataType} className="relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-1 h-full ${getMetricColor(dataType)}`} />
-                <CardHeader className="pb-2">
+              <Card key={dataType} className="transition-all duration-200 hover:shadow-md">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium capitalize flex items-center space-x-2">
-                      {getMetricIcon(dataType)}
-                      <span>{dataType.replace('_', ' ')}</span>
-                    </CardTitle>
-                    <Badge variant="outline" className="text-xs">
-                      {latestItem.date}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {latestItem.value.toLocaleString()}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
-                      {latestItem.unit}
-                    </span>
-                  </div>
-                  {change !== 0 && (
-                    <p className={`text-xs ${change > 0 ? 'text-health-success' : 'text-health-error'}`}>
-                      {change > 0 ? '+' : ''}{change.toFixed(1)}% from previous
-                    </p>
-                  )}
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {items.length} record{items.length !== 1 ? 's' : ''} available
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${getMetricColor(dataType)}`}>
+                        {getMetricIcon(dataType)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground capitalize">
+                          {dataType.replace(/-/g, ' ')}
+                        </p>
+                        <p className="text-2xl font-bold">
+                          {typeof displayValue === 'number' ? displayValue.toFixed(displayValue % 1 === 0 ? 0 : 1) : displayValue}
+                          <span className="text-sm font-normal text-muted-foreground ml-1">
+                            {displayUnit}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(latestRecord.date).toLocaleDateString()}
+                      </p>
+                      {percentageChange && (
+                        <Badge 
+                          variant={parseFloat(percentageChange) >= 0 ? "default" : "secondary"}
+                          className="text-xs mt-1"
+                        >
+                          {parseFloat(percentageChange) >= 0 ? '+' : ''}{percentageChange}%
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Target, TrendingDown, Scale, CalendarIcon, Activity, CheckCircle } from 'lucide-react';
+import { UnitsPreference, UnitsType, convertWeight, getWeightUnit } from './UnitsPreference';
 
 interface WeightGoal {
   id: string;
@@ -53,6 +54,7 @@ export function WeightGoals() {
   const [loading, setLoading] = useState(true);
   const [showNewGoal, setShowNewGoal] = useState(false);
   const [showEndDay, setShowEndDay] = useState(false);
+  const [userUnits, setUserUnits] = useState<UnitsType>('imperial');
 
   // New goal form state
   const [targetWeight, setTargetWeight] = useState('');
@@ -155,12 +157,13 @@ export function WeightGoals() {
   const handleCreateGoal = async () => {
     if (!user || !currentWeight || !targetWeight) return;
 
-    const targetWeightNum = parseFloat(targetWeight);
-    const weeklyLossNum = parseFloat(weeklyLoss);
+    // Convert input weights back to lbs for storage
+    const targetWeightInLbs = convertWeight(parseFloat(targetWeight), userUnits, 'imperial');
+    const weeklyLossInLbs = convertWeight(parseFloat(weeklyLoss), userUnits, 'imperial');
     const dailyDeficitNum = parseInt(dailyDeficit);
 
-    const totalLoss = currentWeight - targetWeightNum;
-    const estimatedWeeks = Math.ceil(totalLoss / weeklyLossNum);
+    const totalLoss = currentWeight - targetWeightInLbs;
+    const estimatedWeeks = Math.ceil(totalLoss / weeklyLossInLbs);
     const calculatedTargetDate = new Date();
     calculatedTargetDate.setDate(calculatedTargetDate.getDate() + (estimatedWeeks * 7));
 
@@ -179,8 +182,8 @@ export function WeightGoals() {
         .insert([{
           user_id: user.id,
           start_weight: currentWeight,
-          target_weight: targetWeightNum,
-          weekly_loss_target: weeklyLossNum,
+          target_weight: targetWeightInLbs,
+          weekly_loss_target: weeklyLossInLbs,
           daily_calorie_deficit: dailyDeficitNum,
           target_date: targetDate ? targetDate.toISOString().split('T')[0] : calculatedTargetDate.toISOString().split('T')[0]
         }])
@@ -212,11 +215,16 @@ export function WeightGoals() {
     const currentDeficit = caloriesData ? (caloriesData.burned - caloriesData.consumed) : 0;
 
     try {
+      // Convert weight back to lbs for storage
+      const weightInLbs = todayWeight ? 
+        convertWeight(parseFloat(todayWeight), userUnits, 'imperial') : 
+        currentWeight;
+
       const progressData = {
         user_id: user.id,
         goal_id: activeGoal.id,
         date: today,
-        current_weight: todayWeight ? parseFloat(todayWeight) : currentWeight,
+        current_weight: weightInLbs,
         calories_consumed: caloriesData?.consumed || 0,
         calories_burned: caloriesData?.burned || 0,
         calorie_deficit_achieved: currentDeficit,
@@ -272,6 +280,12 @@ export function WeightGoals() {
   const currentDeficit = caloriesData ? (caloriesData.burned - caloriesData.consumed) : 0;
   const deficitProgress = activeGoal ? Math.max(0, (currentDeficit / activeGoal.daily_calorie_deficit) * 100) : 0;
 
+  // Convert weights for display
+  const displayCurrentWeight = currentWeight ? convertWeight(currentWeight, 'imperial', userUnits) : null;
+  const displayStartWeight = activeGoal ? convertWeight(activeGoal.start_weight, 'imperial', userUnits) : null;
+  const displayTargetWeight = activeGoal ? convertWeight(activeGoal.target_weight, 'imperial', userUnits) : null;
+  const weightUnit = getWeightUnit(userUnits);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -290,27 +304,30 @@ export function WeightGoals() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label>Current Weight: {currentWeight} lbs</Label>
+                  <Label>Current Weight: {displayCurrentWeight?.toFixed(1)} {weightUnit}</Label>
                 </div>
                 <div>
-                  <Label htmlFor="target-weight">Target Weight (lbs)</Label>
+                  <Label htmlFor="target-weight">Target Weight ({weightUnit})</Label>
                   <Input
                     id="target-weight"
                     type="number"
+                    step="0.1"
                     value={targetWeight}
                     onChange={(e) => {
                       setTargetWeight(e.target.value);
                       if (currentWeight && e.target.value) {
-                        const suggested = calculateSuggestedValues(currentWeight, parseFloat(e.target.value));
+                        // Convert input back to lbs for calculation
+                        const targetInLbs = convertWeight(parseFloat(e.target.value), userUnits, 'imperial');
+                        const suggested = calculateSuggestedValues(currentWeight, targetInLbs);
                         setWeeklyLoss(suggested.weeklyLoss.toFixed(1));
                         setDailyDeficit(suggested.dailyDeficit.toString());
                       }
                     }}
-                    placeholder="Enter target weight"
+                    placeholder={`Enter target weight in ${weightUnit}`}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="weekly-loss">Weekly Loss Target (lbs)</Label>
+                  <Label htmlFor="weekly-loss">Weekly Loss Target ({weightUnit})</Label>
                   <Input
                     id="weekly-loss"
                     type="number"
@@ -376,15 +393,15 @@ export function WeightGoals() {
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span>Start Weight:</span>
-                <span className="font-semibold">{activeGoal.start_weight} lbs</span>
+                <span className="font-semibold">{displayStartWeight?.toFixed(1)} {weightUnit}</span>
               </div>
               <div className="flex justify-between">
                 <span>Current Weight:</span>
-                <span className="font-semibold">{currentWeight || 'No data'} lbs</span>
+                <span className="font-semibold">{displayCurrentWeight?.toFixed(1) || 'No data'} {displayCurrentWeight ? weightUnit : ''}</span>
               </div>
               <div className="flex justify-between">
                 <span>Target Weight:</span>
-                <span className="font-semibold">{activeGoal.target_weight} lbs</span>
+                <span className="font-semibold">{displayTargetWeight?.toFixed(1)} {weightUnit}</span>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -454,14 +471,14 @@ export function WeightGoals() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="today-weight">Today's Weight (optional)</Label>
+                      <Label htmlFor="today-weight">Today's Weight (optional) ({weightUnit})</Label>
                       <Input
                         id="today-weight"
                         type="number"
                         step="0.1"
                         value={todayWeight}
                         onChange={(e) => setTodayWeight(e.target.value)}
-                        placeholder={currentWeight ? currentWeight.toString() : "Enter weight"}
+                        placeholder={displayCurrentWeight ? displayCurrentWeight.toFixed(1) : `Enter weight in ${weightUnit}`}
                       />
                     </div>
                     <div>
@@ -506,7 +523,7 @@ export function WeightGoals() {
             <h3 className="text-lg font-semibold mb-2">No Active Goal</h3>
             <p className="text-muted-foreground mb-4 text-center">
               {currentWeight ? 
-                `Current weight: ${currentWeight} lbs. Set a goal to start tracking your progress!` :
+                `Current weight: ${displayCurrentWeight?.toFixed(1)} ${weightUnit}. Set a goal to start tracking your progress!` :
                 'Connect your Fitbit to see your current weight and set goals.'
               }
             </p>
