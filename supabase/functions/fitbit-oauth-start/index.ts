@@ -18,11 +18,6 @@ serve(async (req) => {
   try {
     console.log('Processing OAuth start request...')
     
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-
     // Get the auth header to identify the user
     const authHeader = req.headers.get('authorization')
     console.log('Auth header present:', !!authHeader)
@@ -37,6 +32,19 @@ serve(async (req) => {
         }
       )
     }
+
+    // Create authenticated Supabase client with user's JWT
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    )
 
     // Get user from auth header
     console.log('Getting user from auth header...')
