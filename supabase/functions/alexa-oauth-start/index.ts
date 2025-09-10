@@ -115,7 +115,7 @@ serve(async (req) => {
     }))
 
     // Build Alexa OAuth URL - Login with Amazon
-    const scope = 'alexa:all'
+    const scope = 'profile'
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
