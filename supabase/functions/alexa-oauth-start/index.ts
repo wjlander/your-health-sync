@@ -97,10 +97,13 @@ serve(async (req) => {
     }
 
     // Check if this is an Alexa Skills Kit client ID vs Login with Amazon
+    console.log('Checking client ID:', config.client_id)
+    console.log('Client ID starts with amzn1.application-oa2-client:', config.client_id.startsWith('amzn1.application-oa2-client'))
+    
     const isAlexaSkillsKit = config.client_id.startsWith('amzn1.application-oa2-client')
     
     if (isAlexaSkillsKit) {
-      console.log('Detected Alexa Skills Kit client ID - using SMAPI flow')
+      console.log('Detected Alexa Skills Kit client ID - this is NOT compatible with Login with Amazon')
       return new Response(
         JSON.stringify({ 
           error: 'Your Client ID appears to be for Alexa Skills Kit. For Alexa integration, you need a Login with Amazon application. Please create a Login with Amazon Security Profile at https://developer.amazon.com/loginwithamazon/console/site/lwa/overview.html instead.' 
