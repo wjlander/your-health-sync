@@ -203,6 +203,98 @@ export type Database = {
         }
         Relationships: []
       }
+      weight_goals: {
+        Row: {
+          created_at: string
+          daily_calorie_deficit: number
+          id: string
+          is_active: boolean
+          start_date: string
+          start_weight: number
+          target_date: string
+          target_weight: number
+          updated_at: string
+          user_id: string
+          weekly_loss_target: number
+        }
+        Insert: {
+          created_at?: string
+          daily_calorie_deficit?: number
+          id?: string
+          is_active?: boolean
+          start_date?: string
+          start_weight: number
+          target_date: string
+          target_weight: number
+          updated_at?: string
+          user_id: string
+          weekly_loss_target?: number
+        }
+        Update: {
+          created_at?: string
+          daily_calorie_deficit?: number
+          id?: string
+          is_active?: boolean
+          start_date?: string
+          start_weight?: number
+          target_date?: string
+          target_weight?: number
+          updated_at?: string
+          user_id?: string
+          weekly_loss_target?: number
+        }
+        Relationships: []
+      }
+      weight_progress: {
+        Row: {
+          calorie_deficit_achieved: number | null
+          calories_burned: number | null
+          calories_consumed: number | null
+          created_at: string
+          current_weight: number | null
+          date: string
+          goal_id: string
+          id: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calorie_deficit_achieved?: number | null
+          calories_burned?: number | null
+          calories_consumed?: number | null
+          created_at?: string
+          current_weight?: number | null
+          date?: string
+          goal_id: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calorie_deficit_achieved?: number | null
+          calories_burned?: number | null
+          calories_consumed?: number | null
+          created_at?: string
+          current_weight?: number | null
+          date?: string
+          goal_id?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weight_progress_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "weight_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

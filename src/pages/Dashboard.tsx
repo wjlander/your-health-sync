@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users } from 'lucide-react';
+import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale } from 'lucide-react';
 import HealthMetrics from '@/components/HealthMetrics';
 import CalendarEvents from '@/components/CalendarEvents';
 import RoutinesManager from '@/components/RoutinesManager';
 import ApiConfiguration from '@/components/ApiConfiguration';
 import UserCreator from '@/components/UserCreator';
+import { WeightGoals } from '@/components/WeightGoals';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -66,7 +67,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto p-6">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <TrendingUp className="h-4 w-4" />
               <span>Overview</span>
@@ -82,6 +83,10 @@ const Dashboard = () => {
             <TabsTrigger value="routines" className="flex items-center space-x-2">
               <Target className="h-4 w-4" />
               <span>Routines</span>
+            </TabsTrigger>
+            <TabsTrigger value="weight" className="flex items-center space-x-2">
+              <Scale className="h-4 w-4" />
+              <span>Weight Goals</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center space-x-2">
               <Users className="h-4 w-4" />
@@ -145,6 +150,10 @@ const Dashboard = () => {
 
           <TabsContent value="routines">
             <RoutinesManager />
+          </TabsContent>
+
+          <TabsContent value="weight">
+            <WeightGoals />
           </TabsContent>
 
           <TabsContent value="users">
