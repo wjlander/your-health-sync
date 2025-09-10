@@ -57,6 +57,9 @@ serve(async (req) => {
 
     // Get Fitbit configuration
     console.log('Fetching Fitbit configuration...')
+    console.log('Looking for user_id:', user.id)
+    console.log('Looking for service_name: fitbit')
+    
     const { data: config, error: configError } = await supabase
       .from('api_configurations')
       .select('*')
@@ -64,7 +67,12 @@ serve(async (req) => {
       .eq('service_name', 'fitbit')
       .maybeSingle()
 
-    console.log('Config query result:', { config, configError })
+    console.log('Raw database response:')
+    console.log('- config:', JSON.stringify(config, null, 2))
+    console.log('- configError:', JSON.stringify(configError, null, 2))
+    console.log('Config exists:', !!config)
+    console.log('Config client_id:', config?.client_id)
+    console.log('Config redirect_url:', config?.redirect_url)
     
     if (configError) {
       console.log('Database error:', configError)
@@ -78,7 +86,7 @@ serve(async (req) => {
     }
 
     if (!config) {
-      console.log('No Fitbit configuration found')
+      console.log('No Fitbit configuration found in database')
       return new Response(
         JSON.stringify({ 
           error: 'No Fitbit configuration found. Please save your Fitbit Client ID and Redirect URL first.' 
