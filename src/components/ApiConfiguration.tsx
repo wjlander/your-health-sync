@@ -18,6 +18,7 @@ interface ApiConfig {
   api_key?: string;
   access_token?: string;
   refresh_token?: string;
+  redirect_url?: string;
   expires_at?: string;
   is_active: boolean;
 }
@@ -32,8 +33,7 @@ const ApiConfiguration = () => {
   const [fitbitConfig, setFitbitConfig] = useState({
     client_id: '',
     client_secret: '',
-    access_token: '',
-    refresh_token: '',
+    redirect_url: '',
   });
 
   const [googleConfig, setGoogleConfig] = useState({
@@ -75,8 +75,7 @@ const ApiConfiguration = () => {
             setFitbitConfig({
               client_id: config.client_id || '',
               client_secret: config.client_secret || '',
-              access_token: config.access_token || '',
-              refresh_token: config.refresh_token || '',
+              redirect_url: config.redirect_url || '',
             });
             break;
           case 'google':
@@ -268,24 +267,17 @@ const ApiConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fitbit-access-token">Access Token (Optional)</Label>
+                  <Label htmlFor="fitbit-redirect-url">Redirect URL</Label>
                   <Input
-                    id="fitbit-access-token"
-                    type="password"
-                    placeholder="Enter Access Token if available"
-                    value={fitbitConfig.access_token}
-                    onChange={(e) => setFitbitConfig({ ...fitbitConfig, access_token: e.target.value })}
+                    id="fitbit-redirect-url"
+                    type="url"
+                    placeholder="https://your-app.com/auth/fitbit/callback"
+                    value={fitbitConfig.redirect_url}
+                    onChange={(e) => setFitbitConfig({ ...fitbitConfig, redirect_url: e.target.value })}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fitbit-refresh-token">Refresh Token (Optional)</Label>
-                  <Input
-                    id="fitbit-refresh-token"
-                    type="password"
-                    placeholder="Enter Refresh Token if available"
-                    value={fitbitConfig.refresh_token}
-                    onChange={(e) => setFitbitConfig({ ...fitbitConfig, refresh_token: e.target.value })}
-                  />
+                  <p className="text-sm text-muted-foreground">
+                    This URL should be configured in your Fitbit app settings
+                  </p>
                 </div>
               </div>
               <div className="flex space-x-2">
