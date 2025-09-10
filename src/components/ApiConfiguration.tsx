@@ -181,15 +181,74 @@ const ApiConfiguration = () => {
 
       toast({
         title: "Connection Test",
-        description: data.success ? "Connection successful!" : "Connection failed",
+        description: data.success ? data.message : data.message,
         variant: data.success ? "default" : "destructive",
       });
     } catch (error) {
+      console.error('Error testing connection:', error);
       toast({
         title: "Test Failed",
         description: "Failed to test API connection",
         variant: "destructive",
       });
+    }
+  };
+
+  const startFitbitOAuth = async () => {
+    try {
+      setSaving('fitbit');
+      
+      const { data, error } = await supabase.functions.invoke('fitbit-oauth-start');
+      
+      if (error) throw error;
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Open OAuth URL in popup
+      const popup = window.open(
+        data.authUrl,
+        'fitbit-oauth',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+
+      // Listen for OAuth completion
+      const messageListener = (event: MessageEvent) => {
+        if (event.data.type === 'fitbit_oauth_success') {
+          popup?.close();
+          window.removeEventListener('message', messageListener);
+          
+          toast({
+            title: "Fitbit Connected",
+            description: "Successfully connected to Fitbit! You can now test the connection.",
+          });
+          
+          // Refresh configurations
+          fetchConfigs();
+        }
+      };
+
+      window.addEventListener('message', messageListener);
+
+      // Clean up if popup is closed manually
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', messageListener);
+          setSaving(null);
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error starting OAuth:', error);
+      toast({
+        title: "OAuth Failed",
+        description: error.message || "Failed to start Fitbit authorization",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -271,12 +330,13 @@ const ApiConfiguration = () => {
                   <Input
                     id="fitbit-redirect-url"
                     type="url"
-                    placeholder="https://your-app.com/auth/fitbit/callback"
+                    placeholder="https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/fitbit-oauth-callback"
                     value={fitbitConfig.redirect_url}
                     onChange={(e) => setFitbitConfig({ ...fitbitConfig, redirect_url: e.target.value })}
                   />
                   <p className="text-sm text-muted-foreground">
-                    This URL should be configured in your Fitbit app settings
+                    Use: <code className="bg-muted px-1 rounded">https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/fitbit-oauth-callback</code><br/>
+                    This URL must be configured in your Fitbit app settings.
                   </p>
                 </div>
               </div>
@@ -293,6 +353,23 @@ const ApiConfiguration = () => {
                   )}
                   {saving === 'fitbit' ? 'Saving...' : 'Save Configuration'}
                 </Button>
+                
+                {getConfigStatus('fitbit') && fitbitConfig.client_id && fitbitConfig.redirect_url && (
+                  <Button
+                    variant="secondary"
+                    onClick={startFitbitOAuth}
+                    disabled={saving === 'fitbit'}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {saving === 'fitbit' ? (
+                      <Key className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Key className="h-4 w-4 mr-2" />
+                    )}
+                    Connect to Fitbit
+                  </Button>
+                )}
+                
                 {getConfigStatus('fitbit') && (
                   <Button
                     variant="outline"
