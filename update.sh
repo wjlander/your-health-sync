@@ -9,7 +9,7 @@ echo "🔄 Starting update for Health & Wellness App..."
 
 # Configuration
 APP_DIR="/var/www/health-app"
-BACKUP_DIR="/var/backups/health-app"
+BACKUP_DIR="$HOME/health-app-backups"
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,7 +31,7 @@ print_error() {
 
 # Create backup
 print_status "Creating backup..."
-sudo mkdir -p $BACKUP_DIR
+mkdir -p $BACKUP_DIR
 sudo cp -r $APP_DIR $BACKUP_DIR/$(date +%Y%m%d_%H%M%S)
 
 # Pull latest changes (if using git)
@@ -62,7 +62,7 @@ sudo systemctl reload nginx
 
 # Clean up old backups (keep last 5)
 print_status "Cleaning up old backups..."
-sudo find $BACKUP_DIR -maxdepth 1 -type d -name "20*" | sort -r | tail -n +6 | sudo xargs rm -rf
+find $BACKUP_DIR -maxdepth 1 -type d -name "20*" | sort -r | tail -n +6 | xargs rm -rf
 
 print_status "Update completed successfully! 🎉"
 print_status "Application has been updated with zero downtime"

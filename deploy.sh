@@ -9,7 +9,7 @@ echo "🚀 Starting deployment for Health & Wellness App..."
 
 # Configuration
 APP_NAME="health-app"
-APP_DIR="/var/www/health-app"
+APP_DIR="$HOME/health-app-deploy"
 DOMAIN="health.ringing.org.uk"
 PORT=8080
 
@@ -38,10 +38,17 @@ if [[ $EUID -eq 0 ]]; then
    exit 1
 fi
 
+# Clear npm cache and fix permissions
+print_status "Clearing npm cache and fixing permissions..."
+npm cache clean --force
+sudo chown -R $USER:$USER ~/.npm
+sudo chown -R $USER:$USER ./node_modules 2>/dev/null || true
+
 # Create app directory
 print_status "Creating application directory..."
-sudo mkdir -p $APP_DIR
-sudo chown $USER:$USER $APP_DIR
+mkdir -p $APP_DIR
+sudo mkdir -p /var/www/health-app
+sudo chown -R $USER:$USER /var/www/health-app
 
 # Build the application
 print_status "Building the application..."
@@ -50,8 +57,9 @@ npm run build
 
 # Copy built files
 print_status "Copying built files to server directory..."
-sudo cp -r dist/* $APP_DIR/
-sudo chown -R www-data:www-data $APP_DIR
+cp -r dist/* $APP_DIR/
+sudo cp -r dist/* /var/www/health-app/
+sudo chown -R www-data:www-data /var/www/health-app
 
 # Create Nginx configuration
 print_status "Creating Nginx configuration..."
@@ -70,7 +78,7 @@ server {
     
     # SSL configuration will be added by certbot
     
-    root $APP_DIR;
+    root /var/www/health-app;
     index index.html;
     
     # Gzip compression
@@ -96,22 +104,21 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
-    
-    # API proxy (if needed for Supabase edge functions)
-    location /api/ {
-        proxy_pass https://your-supabase-project.supabase.co/functions/v1/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
 }
 EOF
 
 # Enable the site
 print_status "Enabling Nginx site..."
 sudo ln -sf /etc/nginx/sites-available/$APP_NAME /etc/nginx/sites-enabled/
-sudo nginx -t
+
+# Test Nginx configuration before restarting
+print_status "Testing Nginx configuration..."
+if sudo nginx -t; then
+    print_status "Nginx configuration is valid"
+else
+    print_error "Nginx configuration test failed. Please check the configuration."
+    exit 1
+fi
 
 # Restart Nginx
 print_status "Restarting Nginx..."
