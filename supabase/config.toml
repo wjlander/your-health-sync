@@ -14,3 +14,15 @@ verify_jwt = false
 
 [functions.sync-fitbit-data]
 verify_jwt = true
+
+[functions.google-oauth-start]
+verify_jwt = true
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.alexa-oauth-start]
+verify_jwt = true
+
+[functions.alexa-oauth-callback]
+verify_jwt = false

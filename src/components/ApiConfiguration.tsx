@@ -40,12 +40,14 @@ const ApiConfiguration = () => {
     client_id: '',
     client_secret: '',
     api_key: '',
+    redirect_url: '',
   });
 
   const [amazonConfig, setAmazonConfig] = useState({
     client_id: '',
     client_secret: '',
     api_key: '',
+    redirect_url: '',
   });
 
   useEffect(() => {
@@ -83,13 +85,15 @@ const ApiConfiguration = () => {
               client_id: config.client_id || '',
               client_secret: config.client_secret || '',
               api_key: config.api_key || '',
+              redirect_url: (config as any).redirect_url || '',
             });
             break;
-          case 'amazon':
+          case 'alexa':
             setAmazonConfig({
               client_id: config.client_id || '',
               client_secret: config.client_secret || '',
               api_key: config.api_key || '',
+              redirect_url: (config as any).redirect_url || '',
             });
             break;
         }
@@ -169,6 +173,172 @@ const ApiConfiguration = () => {
   const getConfigStatus = (serviceName: string) => {
     const config = configs.find(c => c.service_name === serviceName);
     return config?.is_active;
+  };
+
+  const startGoogleOAuth = async () => {
+    try {
+      setSaving('google');
+      
+      console.log('Starting Google OAuth...');
+      console.log('User:', user?.id);
+      console.log('Google config:', googleConfig);
+      
+      const result = await supabase.functions.invoke('google-oauth-start');
+      
+      console.log('Google OAuth result:', result);
+      
+      const { data, error } = result;
+      
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+      }
+      
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
+        throw new Error(data.error);
+      }
+
+      if (!data?.authUrl) {
+        console.error('No authUrl in response:', data);
+        throw new Error('No authorization URL received from server');
+      }
+
+      console.log('Opening Google OAuth popup with URL:', data.authUrl);
+
+      // Open OAuth URL in popup
+      const popup = window.open(
+        data.authUrl,
+        'google-oauth',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        throw new Error('Failed to open popup window. Please check popup blocker settings.');
+      }
+
+      // Listen for OAuth completion
+      const messageListener = (event: MessageEvent) => {
+        console.log('Received message:', event);
+        if (event.data.type === 'google_oauth_success') {
+          popup?.close();
+          window.removeEventListener('message', messageListener);
+          
+          toast({
+            title: "Google Calendar Connected",
+            description: "Successfully connected to Google Calendar! You can now test the connection.",
+          });
+          
+          // Refresh configurations
+          fetchConfigs();
+          setSaving(null);
+        }
+      };
+
+      window.addEventListener('message', messageListener);
+
+      // Clean up if popup is closed manually
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', messageListener);
+          setSaving(null);
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Google OAuth error:', error);
+      
+      toast({
+        title: "OAuth Failed",
+        description: error.message || "Failed to start Google Calendar authorization",
+        variant: "destructive",
+      });
+      setSaving(null);
+    }
+  };
+
+  const startAlexaOAuth = async () => {
+    try {
+      setSaving('amazon');
+      
+      console.log('Starting Alexa OAuth...');
+      console.log('User:', user?.id);
+      console.log('Alexa config:', amazonConfig);
+      
+      const result = await supabase.functions.invoke('alexa-oauth-start');
+      
+      console.log('Alexa OAuth result:', result);
+      
+      const { data, error } = result;
+      
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+      }
+      
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
+        throw new Error(data.error);
+      }
+
+      if (!data?.authUrl) {
+        console.error('No authUrl in response:', data);
+        throw new Error('No authorization URL received from server');
+      }
+
+      console.log('Opening Alexa OAuth popup with URL:', data.authUrl);
+
+      // Open OAuth URL in popup
+      const popup = window.open(
+        data.authUrl,
+        'alexa-oauth',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        throw new Error('Failed to open popup window. Please check popup blocker settings.');
+      }
+
+      // Listen for OAuth completion
+      const messageListener = (event: MessageEvent) => {
+        console.log('Received message:', event);
+        if (event.data.type === 'alexa_oauth_success') {
+          popup?.close();
+          window.removeEventListener('message', messageListener);
+          
+          toast({
+            title: "Alexa Connected",
+            description: "Successfully connected to Alexa! You can now test the connection.",
+          });
+          
+          // Refresh configurations
+          fetchConfigs();
+          setSaving(null);
+        }
+      };
+
+      window.addEventListener('message', messageListener);
+
+      // Clean up if popup is closed manually
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', messageListener);
+          setSaving(null);
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Alexa OAuth error:', error);
+      
+      toast({
+        title: "OAuth Failed",
+        description: error.message || "Failed to start Alexa authorization",
+        variant: "destructive",
+      });
+      setSaving(null);
+    }
   };
 
   const testConnection = async (serviceName: string) => {
@@ -319,7 +489,7 @@ const ApiConfiguration = () => {
           <TabsTrigger value="amazon" className="flex items-center space-x-2">
             <Key className="h-4 w-4" />
             <span>Amazon</span>
-            {getConfigStatus('amazon') && <Check className="h-3 w-3 text-health-success" />}
+            {getConfigStatus('alexa') && <Check className="h-3 w-3 text-health-success" />}
           </TabsTrigger>
         </TabsList>
 
@@ -480,30 +650,62 @@ const ApiConfiguration = () => {
                     value={googleConfig.api_key}
                     onChange={(e) => setGoogleConfig({ ...googleConfig, api_key: e.target.value })}
                   />
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => saveConfig('google', googleConfig)}
-                  disabled={saving === 'google'}
-                  className="bg-health-primary hover:bg-health-secondary"
-                >
-                  {saving === 'google' ? (
-                    <Key className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  {saving === 'google' ? 'Saving...' : 'Save Configuration'}
-                </Button>
-                {getConfigStatus('google') && (
-                  <Button
-                    variant="outline"
-                    onClick={() => testConnection('google')}
-                  >
-                    Test Connection
-                  </Button>
-                )}
-              </div>
+                 </div>
+                 <div className="space-y-2 md:col-span-2">
+                   <Label htmlFor="google-redirect-url">Redirect URL</Label>
+                   <Input
+                     id="google-redirect-url"
+                     type="url"
+                     placeholder="https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/google-oauth-callback"
+                     value={googleConfig.redirect_url || ''}
+                     onChange={(e) => setGoogleConfig({ ...googleConfig, redirect_url: e.target.value })}
+                     disabled
+                   />
+                   <p className="text-sm text-muted-foreground">
+                     Use: <code className="bg-muted px-1 rounded">https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/google-oauth-callback</code><br/>
+                     This URL must be configured in your Google Cloud Console OAuth settings.
+                   </p>
+                 </div>
+               </div>
+               <div className="flex space-x-2">
+                 <Button
+                   onClick={() => saveConfig('google', googleConfig)}
+                   disabled={saving === 'google'}
+                   className="bg-health-primary hover:bg-health-secondary"
+                 >
+                   {saving === 'google' ? (
+                     <Key className="h-4 w-4 animate-spin mr-2" />
+                   ) : (
+                     <Save className="h-4 w-4 mr-2" />
+                   )}
+                   {saving === 'google' ? 'Saving...' : 'Save Configuration'}
+                 </Button>
+                 
+                 {getConfigStatus('google') && googleConfig.client_id && googleConfig.client_secret && (
+                   <Button
+                     variant="secondary"
+                     onClick={startGoogleOAuth}
+                     disabled={saving === 'google'}
+                     className="bg-blue-600 hover:bg-blue-700 text-white"
+                   >
+                     {saving === 'google' ? (
+                       <Key className="h-4 w-4 animate-spin mr-2" />
+                     ) : (
+                       <Key className="h-4 w-4 mr-2" />
+                     )}
+                     Connect to Google Calendar
+                   </Button>
+                 )}
+                 
+                 {getConfigStatus('google') && (
+                   <Button
+                     variant="outline"
+                     onClick={() => testConnection('google')}
+                   >
+                     Test Connection
+                   </Button>
+                 )}
+               </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -521,14 +723,14 @@ const ApiConfiguration = () => {
                     Configure Amazon Alexa API credentials for routines and reminders
                   </CardDescription>
                 </div>
-                {getConfigStatus('amazon') ? (
-                  <Badge className="bg-health-success">Connected</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-health-warning">
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    Not Connected
-                  </Badge>
-                )}
+                 {getConfigStatus('amazon') ? (
+                   <Badge className="bg-health-success">Connected</Badge>
+                 ) : (
+                   <Badge variant="outline" className="text-health-warning">
+                     <AlertCircle className="h-3 w-3 mr-1" />
+                     Not Connected
+                   </Badge>
+                 )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -552,40 +754,62 @@ const ApiConfiguration = () => {
                     value={amazonConfig.client_secret}
                     onChange={(e) => setAmazonConfig({ ...amazonConfig, client_secret: e.target.value })}
                   />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="amazon-api-key">API Key</Label>
-                  <Input
-                    id="amazon-api-key"
-                    type="password"
-                    placeholder="Enter Amazon API Key"
-                    value={amazonConfig.api_key}
-                    onChange={(e) => setAmazonConfig({ ...amazonConfig, api_key: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => saveConfig('amazon', amazonConfig)}
-                  disabled={saving === 'amazon'}
-                  className="bg-health-primary hover:bg-health-secondary"
-                >
-                  {saving === 'amazon' ? (
-                    <Key className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  {saving === 'amazon' ? 'Saving...' : 'Save Configuration'}
-                </Button>
-                {getConfigStatus('amazon') && (
-                  <Button
-                    variant="outline"
-                    onClick={() => testConnection('amazon')}
-                  >
-                    Test Connection
-                  </Button>
-                )}
-              </div>
+                 </div>
+                 <div className="space-y-2 md:col-span-2">
+                   <Label htmlFor="amazon-redirect-url">Redirect URL</Label>
+                   <Input
+                     id="amazon-redirect-url"
+                     type="url"
+                     placeholder="https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/alexa-oauth-callback"
+                     value={amazonConfig.redirect_url || ''}
+                     onChange={(e) => setAmazonConfig({ ...amazonConfig, redirect_url: e.target.value })}
+                     disabled
+                   />
+                   <p className="text-sm text-muted-foreground">
+                     Use: <code className="bg-muted px-1 rounded">https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/alexa-oauth-callback</code><br/>
+                     This URL must be configured in your Amazon Developer Console.
+                   </p>
+                 </div>
+               </div>
+               <div className="flex space-x-2">
+                 <Button
+                   onClick={() => saveConfig('alexa', amazonConfig)}
+                   disabled={saving === 'amazon'}
+                   className="bg-health-primary hover:bg-health-secondary"
+                 >
+                   {saving === 'amazon' ? (
+                     <Key className="h-4 w-4 animate-spin mr-2" />
+                   ) : (
+                     <Save className="h-4 w-4 mr-2" />
+                   )}
+                   {saving === 'amazon' ? 'Saving...' : 'Save Configuration'}
+                 </Button>
+                 
+                 {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && (
+                   <Button
+                     variant="secondary"
+                     onClick={startAlexaOAuth}
+                     disabled={saving === 'amazon'}
+                     className="bg-orange-600 hover:bg-orange-700 text-white"
+                   >
+                     {saving === 'amazon' ? (
+                       <Key className="h-4 w-4 animate-spin mr-2" />
+                     ) : (
+                       <Key className="h-4 w-4 mr-2" />
+                     )}
+                     Connect to Alexa
+                   </Button>
+                 )}
+                 
+                 {getConfigStatus('alexa') && (
+                   <Button
+                     variant="outline"
+                     onClick={() => testConnection('alexa')}
+                   >
+                     Test Connection
+                   </Button>
+                 )}
+               </div>
             </CardContent>
           </Card>
         </TabsContent>

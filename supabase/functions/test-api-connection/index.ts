@@ -15,9 +15,34 @@ serve(async (req) => {
   try {
     console.log('Test API Connection function called')
     
+    // Get the auth header to identify the user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      console.log('No authorization header provided')
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Authorization required',
+          data: null 
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Create authenticated Supabase client with user's JWT
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
     )
 
     const { service } = await req.json()
@@ -33,23 +58,6 @@ serve(async (req) => {
         }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Get the auth header to identify the user
-    const authHeader = req.headers.get('authorization')
-    if (!authHeader) {
-      console.log('No authorization header provided')
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          message: 'Authorization required',
-          data: null 
-        }),
-        { 
-          status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
@@ -129,11 +137,7 @@ serve(async (req) => {
         }
         break
       case 'google':
-        testResult = { 
-          success: false, 
-          message: 'Google connection test not implemented yet', 
-          data: null 
-        }
+        testResult = await testGoogleConnection(config)
         break
       default:
         testResult = { 
@@ -244,6 +248,69 @@ async function testFitbitConnection(config: any) {
     return { 
       success: false, 
       message: `Fitbit connection failed: ${error.message}`, 
+      data: null 
+    }
+  }
+}
+
+async function testGoogleConnection(config: any) {
+  try {
+    console.log('Testing Google Calendar connection...')
+    
+    if (!config.access_token) {
+      return { 
+        success: false, 
+        message: 'No access token found for Google Calendar. Please complete the OAuth flow first.', 
+        data: null 
+      }
+    }
+
+    // Test Google Calendar API with calendar list endpoint
+    console.log('Making request to Google Calendar API...')
+    const response = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Accept': 'application/json'
+      }
+    })
+
+    console.log('Google Calendar API response status:', response.status)
+
+    if (response.status === 401) {
+      return { 
+        success: false, 
+        message: 'Access token expired. Please re-authorize Google Calendar access.', 
+        data: null 
+      }
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.log('Google Calendar API error response:', errorText)
+      return { 
+        success: false, 
+        message: `Google Calendar API error: ${response.status} ${response.statusText}`, 
+        data: null 
+      }
+    }
+
+    const data = await response.json()
+    console.log('Google Calendar API success, calendars found:', data.items?.length || 0)
+    
+    return { 
+      success: true, 
+      message: 'Google Calendar connection successful', 
+      data: { 
+        calendarsCount: data.items?.length || 0,
+        primaryCalendar: data.items?.find((cal: any) => cal.primary)?.summary || 'Unknown'
+      } 
+    }
+
+  } catch (error) {
+    console.error('Google Calendar connection test error:', error)
+    return { 
+      success: false, 
+      message: `Google Calendar connection failed: ${error.message}`, 
       data: null 
     }
   }
