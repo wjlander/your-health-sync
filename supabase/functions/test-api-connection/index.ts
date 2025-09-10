@@ -130,11 +130,7 @@ serve(async (req) => {
         testResult = await testFitbitConnection(config)
         break
       case 'alexa':
-        testResult = { 
-          success: false, 
-          message: 'Alexa connection test not implemented yet', 
-          data: null 
-        }
+        testResult = await testAlexaConnection(config)
         break
       case 'google':
         testResult = await testGoogleConnection(config)
@@ -311,6 +307,69 @@ async function testGoogleConnection(config: any) {
     return { 
       success: false, 
       message: `Google Calendar connection failed: ${error.message}`, 
+      data: null 
+    }
+  }
+}
+
+async function testAlexaConnection(config: any) {
+  try {
+    console.log('Testing Alexa connection...')
+    
+    if (!config.access_token) {
+      return { 
+        success: false, 
+        message: 'No access token found for Alexa. Please complete the OAuth flow first.', 
+        data: null 
+      }
+    }
+
+    // Test Alexa API with user profile endpoint
+    console.log('Making request to Alexa API...')
+    const response = await fetch('https://api.amazonalexa.com/v1/customers/~current/profile', {
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Accept': 'application/json'
+      }
+    })
+
+    console.log('Alexa API response status:', response.status)
+
+    if (response.status === 401) {
+      return { 
+        success: false, 
+        message: 'Access token expired. Please re-authorize Alexa access.', 
+        data: null 
+      }
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.log('Alexa API error response:', errorText)
+      return { 
+        success: false, 
+        message: `Alexa API error: ${response.status} ${response.statusText}`, 
+        data: null 
+      }
+    }
+
+    const data = await response.json()
+    console.log('Alexa API success, user:', data.name)
+    
+    return { 
+      success: true, 
+      message: 'Alexa connection successful', 
+      data: { 
+        user: data.name || 'Unknown User',
+        email: data.email || 'Unknown'
+      } 
+    }
+
+  } catch (error) {
+    console.error('Alexa connection test error:', error)
+    return { 
+      success: false, 
+      message: `Alexa connection failed: ${error.message}`, 
       data: null 
     }
   }
