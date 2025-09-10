@@ -18,9 +18,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
-    const { serviceName } = await req.json()
+    const { service } = await req.json()
+    console.log('Testing connection for service:', service)
 
-    if (!serviceName) {
+    if (!service) {
+      console.log('No service name provided')
       return new Response(
         JSON.stringify({ error: 'Service name is required' }),
         { 
@@ -45,6 +47,7 @@ serve(async (req) => {
     // Get user from auth header
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
     if (authError || !user) {
+      console.log('Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Invalid authorization' }),
         { 
@@ -54,17 +57,20 @@ serve(async (req) => {
       )
     }
 
+    console.log('Testing connection for user:', user.id, 'service:', service)
+
     // Get API configuration for this service and user
     const { data: config, error: configError } = await supabase
       .from('api_configurations')
       .select('*')
       .eq('user_id', user.id)
-      .eq('service_name', serviceName)
+      .eq('service_name', service)
       .single()
 
     if (configError || !config) {
+      console.log('Config error:', configError, 'Found config:', !!config)
       return new Response(
-        JSON.stringify({ error: `No configuration found for ${serviceName}` }),
+        JSON.stringify({ error: `No configuration found for ${service}` }),
         { 
           status: 404, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -72,10 +78,12 @@ serve(async (req) => {
       )
     }
 
+    console.log('Found config for', service, 'with access_token:', !!config.access_token)
+
     // Test connection based on service type
     let testResult = { success: false, message: '', data: null }
 
-    switch (serviceName.toLowerCase()) {
+    switch (service.toLowerCase()) {
       case 'fitbit':
         testResult = await testFitbitConnection(config)
         break
@@ -83,9 +91,10 @@ serve(async (req) => {
         testResult = await testAlexaConnection(config)
         break
       default:
-        testResult = { success: false, message: `Testing not implemented for ${serviceName}`, data: null }
+        testResult = { success: false, message: `Testing not implemented for ${service}`, data: null }
     }
 
+    console.log('Test result:', testResult)
     return new Response(
       JSON.stringify(testResult),
       { 
