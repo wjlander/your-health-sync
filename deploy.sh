@@ -61,22 +61,12 @@ cp -r dist/* $APP_DIR/
 sudo cp -r dist/* /var/www/health-app/
 sudo chown -R www-data:www-data /var/www/health-app
 
-# Create Nginx configuration
+# Create initial Nginx configuration (HTTP only, certbot will add SSL)
 print_status "Creating Nginx configuration..."
 sudo tee /etc/nginx/sites-available/$APP_NAME > /dev/null <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
-    
-    # Redirect HTTP to HTTPS
-    return 301 https://\$server_name\$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name $DOMAIN;
-    
-    # SSL configuration will be added by certbot
     
     root /var/www/health-app;
     index index.html;
