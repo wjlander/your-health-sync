@@ -1,1 +1,7 @@
 project_id = "mgpzuralipywzhmczqhf"
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.test-api-connection]
+verify_jwt = true
