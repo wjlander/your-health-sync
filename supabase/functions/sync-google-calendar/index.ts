@@ -1,0 +1,253 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  console.log('=== SYNC GOOGLE CALENDAR ===')
+  console.log('Method:', req.method)
+  
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    // Get the auth header to identify the user
+    const authHeader = req.headers.get('authorization')
+    console.log('Auth header present:', !!authHeader)
+    
+    if (!authHeader) {
+      console.log('No authorization header provided')
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Create authenticated Supabase client with user's JWT
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    )
+
+    // Get request body to check for calendar selection
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    const selectedCalendarId = body.calendarId || 'primary'
+
+    // Get user from auth header
+    console.log('Getting user from auth header...')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    
+    if (authError || !user) {
+      console.log('Auth error:', authError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log('User found:', user.id)
+
+    // Get Google configuration
+    console.log('Fetching Google configuration...')
+    const { data: config, error: configError } = await supabase
+      .from('api_configurations')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('service_name', 'google')
+      .maybeSingle()
+
+    if (configError) {
+      console.log('Database error:', configError)
+      return new Response(
+        JSON.stringify({ error: `Database error: ${configError.message}` }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (!config || !config.access_token) {
+      console.log('No Google configuration found or no access token')
+      return new Response(
+        JSON.stringify({ 
+          error: 'No Google configuration found or not connected. Please complete the Google OAuth flow first.' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log('Google configuration found, fetching calendar events...')
+    
+    // Get calendar events from the selected calendar
+    const now = new Date()
+    const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    
+    const calendarUrl = `https://www.googleapis.com/calendar/v3/calendars/${selectedCalendarId}/events?` +
+      `timeMin=${now.toISOString()}&` +
+      `timeMax=${oneWeekFromNow.toISOString()}&` +
+      `singleEvents=true&` +
+      `orderBy=startTime&` +
+      `maxResults=50`
+
+    console.log('Fetching events from calendar:', selectedCalendarId)
+    const response = await fetch(calendarUrl, {
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Accept': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.log('Google Calendar API error:', response.status, errorText)
+      
+      if (response.status === 401) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Google access token expired. Please reconnect your Google account in API settings.' 
+          }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Google Calendar API error: ${response.status} ${response.statusText}` 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const calendarData = await response.json()
+    console.log('Fetched', calendarData.items?.length || 0, 'events from Google Calendar')
+
+    // Process and insert events into our database
+    let newEventsCount = 0
+    let updatedEventsCount = 0
+
+    if (calendarData.items && calendarData.items.length > 0) {
+      for (const event of calendarData.items) {
+        if (!event.start || !event.end) continue // Skip events without times
+
+        const startTime = event.start.dateTime || event.start.date
+        const endTime = event.end.dateTime || event.end.date
+        
+        if (!startTime || !endTime) continue
+
+        // Check if event already exists
+        const { data: existingEvent } = await supabase
+          .from('calendar_events')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('event_id', event.id)
+          .single()
+
+        const eventData = {
+          user_id: user.id,
+          event_id: event.id,
+          title: event.summary || 'Untitled Event',
+          description: event.description || null,
+          start_time: startTime,
+          end_time: endTime,
+          is_health_related: isHealthRelated(event.summary || '', event.description || '')
+        }
+
+        if (existingEvent) {
+          // Update existing event
+          const { error: updateError } = await supabase
+            .from('calendar_events')
+            .update(eventData)
+            .eq('id', existingEvent.id)
+
+          if (!updateError) {
+            updatedEventsCount++
+          }
+        } else {
+          // Insert new event
+          const { error: insertError } = await supabase
+            .from('calendar_events')
+            .insert(eventData)
+
+          if (!insertError) {
+            newEventsCount++
+          }
+        }
+      }
+    }
+
+    console.log('Sync completed:', { newEventsCount, updatedEventsCount })
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Calendar sync completed successfully`,
+        data: {
+          newEvents: newEventsCount,
+          updatedEvents: updatedEventsCount,
+          totalProcessed: calendarData.items?.length || 0,
+          calendarId: selectedCalendarId
+        }
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+
+  } catch (error) {
+    console.error('=== SYNC ERROR ===')
+    console.error('Error:', error)
+    console.error('Stack:', error.stack)
+    
+    return new Response(
+      JSON.stringify({ 
+        error: `Server error: ${error.message}`,
+        details: error.stack 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+})
+
+// Helper function to determine if an event is health-related
+function isHealthRelated(title: string, description: string): boolean {
+  const healthKeywords = [
+    'doctor', 'appointment', 'medical', 'health', 'dentist', 'therapy', 'workout', 
+    'gym', 'fitness', 'medicine', 'checkup', 'hospital', 'clinic', 'surgery',
+    'physical', 'mental health', 'counseling', 'medication', 'treatment',
+    'wellness', 'yoga', 'meditation', 'nutrition', 'diet'
+  ]
+  
+  const searchText = `${title} ${description}`.toLowerCase()
+  return healthKeywords.some(keyword => searchText.includes(keyword))
+}

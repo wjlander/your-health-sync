@@ -80,18 +80,27 @@ const RoutinesManager = () => {
       
       if (error) throw error;
       
-      toast({
-        title: "Sync Complete",
-        description: "Amazon routines have been synced successfully",
-      });
-      
-      fetchRoutines();
+      if (data?.success) {
+        toast({
+          title: "Sync Complete",
+          description: "Amazon routines have been synced successfully",
+        });
+        
+        fetchRoutines();
+      } else {
+        // Handle the known limitation gracefully
+        toast({
+          title: "Sync Information",
+          description: data?.message || "Amazon Alexa routines must be managed through the Alexa app. Create local reminders here instead.",
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error('Error syncing Amazon routines:', error);
       toast({
-        title: "Sync Failed",
-        description: "Failed to sync Amazon routines. Please check your API configuration.",
-        variant: "destructive",
+        title: "Sync Information",
+        description: "Amazon Alexa routines cannot be accessed via API. Use the Alexa app to manage routines, or create local wellness reminders here.",
+        variant: "default",
       });
     } finally {
       setSyncing(false);
@@ -243,7 +252,7 @@ const RoutinesManager = () => {
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
-            {syncing ? 'Syncing...' : 'Sync Amazon'}
+            {syncing ? 'Checking...' : 'Check Amazon'}
           </Button>
           
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

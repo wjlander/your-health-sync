@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Calendar, Clock, MapPin, RefreshCw, Plus } from 'lucide-react';
+import { Calendar, Clock, MapPin, RefreshCw, Plus, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface CalendarEvent {
@@ -17,15 +20,29 @@ interface CalendarEvent {
   is_health_related: boolean;
 }
 
+interface GoogleCalendar {
+  id: string;
+  name: string;
+  description?: string;
+  primary: boolean;
+  accessRole: string;
+  backgroundColor?: string;
+}
+
 const CalendarEvents = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [calendars, setCalendars] = useState<GoogleCalendar[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('primary');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
+  const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
       fetchEvents();
+      fetchCalendars();
     }
   }, [user]);
 
@@ -54,19 +71,51 @@ const CalendarEvents = () => {
     }
   };
 
-  const syncGoogleCalendar = async () => {
-    setSyncing(true);
+  const fetchCalendars = async () => {
+    if (!user) return;
+
+    setLoadingCalendars(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-google-calendar');
+      const { data, error } = await supabase.functions.invoke('list-google-calendars');
       
       if (error) throw error;
       
+      if (data?.success && data?.data) {
+        setCalendars(data.data);
+      } else {
+        throw new Error(data?.error || 'Failed to fetch calendars');
+      }
+    } catch (error) {
+      console.error('Error fetching calendars:', error);
       toast({
-        title: "Sync Complete",
-        description: "Google Calendar events have been synced successfully",
+        title: "Error",
+        description: "Failed to fetch Google Calendars. Please check your connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCalendars(false);
+    }
+  };
+
+  const syncGoogleCalendar = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
+        body: { calendarId: selectedCalendarId }
       });
       
-      fetchEvents();
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast({
+          title: "Sync Complete",
+          description: `Synced ${data.data?.newEvents || 0} new events and updated ${data.data?.updatedEvents || 0} events`,
+        });
+        
+        fetchEvents();
+      } else {
+        throw new Error(data?.error || 'Sync failed');
+      }
     } catch (error) {
       console.error('Error syncing Google Calendar:', error);
       toast({
@@ -112,9 +161,67 @@ const CalendarEvents = () => {
           <p className="text-muted-foreground">Manage your Google Calendar integration</p>
         </div>
         <div className="flex space-x-2">
+          <Dialog open={calendarDialogOpen} onOpenChange={setCalendarDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" onClick={fetchCalendars}>
+                <Settings className="h-4 w-4 mr-2" />
+                Select Calendar
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Select Calendar to Sync</DialogTitle>
+                <DialogDescription>
+                  Choose which Google Calendar you want to sync events from.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Available Calendars</Label>
+                  {loadingCalendars ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <Select value={selectedCalendarId} onValueChange={setSelectedCalendarId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a calendar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {calendars.map((calendar) => (
+                          <SelectItem key={calendar.id} value={calendar.id}>
+                            <div className="flex items-center space-x-2">
+                              <span>{calendar.name}</span>
+                              {calendar.primary && (
+                                <Badge variant="outline" className="text-xs">Primary</Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={() => setCalendarDialogOpen(false)}
+                    disabled={!selectedCalendarId}
+                    className="flex-1"
+                  >
+                    Select Calendar
+                  </Button>
+                  <Button variant="outline" onClick={() => setCalendarDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button
             onClick={syncGoogleCalendar}
-            disabled={syncing}
+            disabled={syncing || !selectedCalendarId}
             variant="outline"
           >
             {syncing ? (
@@ -232,7 +339,8 @@ const CalendarEvents = () => {
                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <CardTitle className="mb-2">No Calendar Events</CardTitle>
                 <CardDescription>
-                  Click "Sync Calendar" to import your Google Calendar events, or configure your Google API settings first.
+                  Select a calendar and click "Sync Calendar" to import your Google Calendar events.
+                  {calendars.length === 0 && " Configure your Google API settings first."}
                 </CardDescription>
               </CardContent>
             </Card>

@@ -172,7 +172,7 @@ const ApiConfiguration = () => {
 
   const getConfigStatus = (serviceName: string) => {
     const config = configs.find(c => c.service_name === serviceName);
-    return config?.is_active;
+    return config?.is_active && config?.access_token;
   };
 
   const startGoogleOAuth = async () => {
