@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.fitbit-oauth-callback]
 verify_jwt = false
+
+[functions.sync-fitbit-data]
+verify_jwt = true
