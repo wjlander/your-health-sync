@@ -116,6 +116,7 @@ serve(async (req) => {
 
     // Build Alexa OAuth URL - Login with Amazon
     const scope = 'profile'
+    console.log('Using scope for Alexa OAuth:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
@@ -123,7 +124,8 @@ serve(async (req) => {
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `state=${state}`
 
-    console.log('Generated Alexa auth URL')
+    console.log('Generated Alexa auth URL with scope:', scope)
+    console.log('Full auth URL:', authUrl)
 
     return new Response(
       JSON.stringify({
