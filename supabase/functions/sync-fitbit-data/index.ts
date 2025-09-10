@@ -98,17 +98,23 @@ serve(async (req) => {
 
     console.log('Syncing Fitbit data for user:', user.id)
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0]
-    console.log('Syncing data for date:', today)
+    // Get date range for last 14 days
+    const today = new Date()
+    const startDate = new Date(today)
+    startDate.setDate(today.getDate() - 13) // 14 days including today
+    
+    const endDateStr = today.toISOString().split('T')[0]
+    const startDateStr = startDate.toISOString().split('T')[0]
+    
+    console.log('Syncing data for date range:', startDateStr, 'to', endDateStr)
 
     const syncResults = []
 
     try {
-      // Sync heart rate data
-      console.log('Fetching heart rate data...')
+      // Sync heart rate data (14-day range)
+      console.log('Fetching heart rate data for 14 days...')
       const heartRateResponse = await fetch(
-        `https://api.fitbit.com/1/user/-/activities/heart/date/${today}/1d.json`,
+        `https://api.fitbit.com/1/user/-/activities/heart/date/${startDateStr}/${endDateStr}.json`,
         {
           headers: {
             'Authorization': `Bearer ${config.access_token}`,
@@ -118,27 +124,32 @@ serve(async (req) => {
 
       if (heartRateResponse.ok) {
         const heartRateData = await heartRateResponse.json()
-        console.log('Heart rate data received:', heartRateData)
+        console.log('Heart rate data received for', heartRateData['activities-heart']?.length, 'days')
         
-        if (heartRateData['activities-heart'] && heartRateData['activities-heart'][0]) {
-          const dayData = heartRateData['activities-heart'][0]
-          if (dayData.value && dayData.value.restingHeartRate) {
-            // Store resting heart rate
-            const { error: insertError } = await supabase
-              .from('health_data')
-              .upsert({
-                user_id: user.id,
-                date: today,
-                data_type: 'resting_heart_rate',
-                value: dayData.value.restingHeartRate,
-                unit: 'bpm',
-                metadata: { source: 'fitbit' }
-              }, {
-                onConflict: 'user_id,date,data_type'
-              })
-            
-            if (!insertError) {
-              syncResults.push({ type: 'resting_heart_rate', value: dayData.value.restingHeartRate, unit: 'bpm' })
+        if (heartRateData['activities-heart']) {
+          for (const dayData of heartRateData['activities-heart']) {
+            if (dayData.value && dayData.value.restingHeartRate) {
+              const { error: insertError } = await supabase
+                .from('health_data')
+                .upsert({
+                  user_id: user.id,
+                  date: dayData.dateTime,
+                  data_type: 'resting_heart_rate',
+                  value: dayData.value.restingHeartRate,
+                  unit: 'bpm',
+                  metadata: { source: 'fitbit' }
+                }, {
+                  onConflict: 'user_id,date,data_type'
+                })
+              
+              if (!insertError) {
+                syncResults.push({ 
+                  type: 'resting_heart_rate', 
+                  value: dayData.value.restingHeartRate, 
+                  unit: 'bpm',
+                  date: dayData.dateTime 
+                })
+              }
             }
           }
         }
@@ -146,10 +157,10 @@ serve(async (req) => {
         console.log('Heart rate API error:', heartRateResponse.status, await heartRateResponse.text())
       }
 
-      // Sync steps data
-      console.log('Fetching steps data...')
+      // Sync steps data (14-day range)
+      console.log('Fetching steps data for 14 days...')
       const stepsResponse = await fetch(
-        `https://api.fitbit.com/1/user/-/activities/steps/date/${today}/1d.json`,
+        `https://api.fitbit.com/1/user/-/activities/steps/date/${startDateStr}/${endDateStr}.json`,
         {
           headers: {
             'Authorization': `Bearer ${config.access_token}`,
@@ -159,27 +170,32 @@ serve(async (req) => {
 
       if (stepsResponse.ok) {
         const stepsData = await stepsResponse.json()
-        console.log('Steps data received:', stepsData)
+        console.log('Steps data received for', stepsData['activities-steps']?.length, 'days')
         
-        if (stepsData['activities-steps'] && stepsData['activities-steps'][0]) {
-          const daySteps = stepsData['activities-steps'][0]
-          if (daySteps.value) {
-            // Store steps
-            const { error: insertError } = await supabase
-              .from('health_data')
-              .upsert({
-                user_id: user.id,
-                date: today,
-                data_type: 'steps',
-                value: parseInt(daySteps.value),
-                unit: 'steps',
-                metadata: { source: 'fitbit' }
-              }, {
-                onConflict: 'user_id,date,data_type'
-              })
-            
-            if (!insertError) {
-              syncResults.push({ type: 'steps', value: parseInt(daySteps.value), unit: 'steps' })
+        if (stepsData['activities-steps']) {
+          for (const daySteps of stepsData['activities-steps']) {
+            if (daySteps.value) {
+              const { error: insertError } = await supabase
+                .from('health_data')
+                .upsert({
+                  user_id: user.id,
+                  date: daySteps.dateTime,
+                  data_type: 'steps',
+                  value: parseInt(daySteps.value),
+                  unit: 'steps',
+                  metadata: { source: 'fitbit' }
+                }, {
+                  onConflict: 'user_id,date,data_type'
+                })
+              
+              if (!insertError) {
+                syncResults.push({ 
+                  type: 'steps', 
+                  value: parseInt(daySteps.value), 
+                  unit: 'steps',
+                  date: daySteps.dateTime 
+                })
+              }
             }
           }
         }
@@ -187,45 +203,54 @@ serve(async (req) => {
         console.log('Steps API error:', stepsResponse.status, await stepsResponse.text())
       }
 
-      // Sync weight data
-      console.log('Fetching weight data...')
-      const weightResponse = await fetch(
-        `https://api.fitbit.com/1/user/-/body/log/weight/date/${today}.json`,
-        {
-          headers: {
-            'Authorization': `Bearer ${config.access_token}`,
-          },
-        }
-      )
-
-      if (weightResponse.ok) {
-        const weightData = await weightResponse.json()
-        console.log('Weight data received:', weightData)
+      // Sync weight data (need to fetch each day individually)
+      console.log('Fetching weight data for 14 days...')
+      for (let i = 0; i < 14; i++) {
+        const currentDate = new Date(today)
+        currentDate.setDate(today.getDate() - i)
+        const dateStr = currentDate.toISOString().split('T')[0]
         
-        if (weightData.weight && weightData.weight.length > 0) {
-          const latestWeight = weightData.weight[0]
-          if (latestWeight.weight) {
-            // Store weight
-            const { error: insertError } = await supabase
-              .from('health_data')
-              .upsert({
-                user_id: user.id,
-                date: today,
-                data_type: 'weight',
-                value: latestWeight.weight,
-                unit: 'kg',
-                metadata: { source: 'fitbit' }
-              }, {
-                onConflict: 'user_id,date,data_type'
-              })
-            
-            if (!insertError) {
-              syncResults.push({ type: 'weight', value: latestWeight.weight, unit: 'kg' })
+        const weightResponse = await fetch(
+          `https://api.fitbit.com/1/user/-/body/log/weight/date/${dateStr}.json`,
+          {
+            headers: {
+              'Authorization': `Bearer ${config.access_token}`,
+            },
+          }
+        )
+
+        if (weightResponse.ok) {
+          const weightData = await weightResponse.json()
+          
+          if (weightData.weight && weightData.weight.length > 0) {
+            const latestWeight = weightData.weight[0]
+            if (latestWeight.weight) {
+              const { error: insertError } = await supabase
+                .from('health_data')
+                .upsert({
+                  user_id: user.id,
+                  date: dateStr,
+                  data_type: 'weight',
+                  value: latestWeight.weight,
+                  unit: 'kg',
+                  metadata: { source: 'fitbit' }
+                }, {
+                  onConflict: 'user_id,date,data_type'
+                })
+              
+              if (!insertError) {
+                syncResults.push({ 
+                  type: 'weight', 
+                  value: latestWeight.weight, 
+                  unit: 'kg',
+                  date: dateStr 
+                })
+              }
             }
           }
+        } else {
+          console.log(`Weight API error for ${dateStr}:`, weightResponse.status)
         }
-      } else {
-        console.log('Weight API error:', weightResponse.status, await weightResponse.text())
       }
 
     } catch (apiError) {
