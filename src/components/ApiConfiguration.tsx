@@ -208,6 +208,16 @@ const ApiConfiguration = () => {
       console.log('Result data:', result.data);
       console.log('Result error:', result.error);
       
+      // Try to get more details from the response
+      if (result.error && result.response) {
+        try {
+          const responseText = await result.response.text();
+          console.log('Response body:', responseText);
+        } catch (e) {
+          console.log('Could not read response body:', e);
+        }
+      }
+      
       const { data, error } = result;
       
       if (error) {
