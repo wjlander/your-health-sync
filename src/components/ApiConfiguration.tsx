@@ -785,34 +785,21 @@ const ApiConfiguration = () => {
                    {saving === 'amazon' ? 'Saving...' : 'Save Configuration'}
                  </Button>
                  
-                  {(() => {
-                    const configStatus = getConfigStatus('alexa');
-                    const hasClientId = !!amazonConfig.client_id;
-                    const hasClientSecret = !!amazonConfig.client_secret;
-                    console.log('Alexa Connect Button Visibility Check:', {
-                      configStatus,
-                      hasClientId, 
-                      hasClientSecret,
-                      amazonConfig,
-                      configs: configs.filter(c => c.service_name === 'alexa')
-                    });
-                    
-                    return configStatus && hasClientId && hasClientSecret ? (
-                      <Button
-                        variant="secondary"
-                        onClick={startAlexaOAuth}
-                        disabled={saving === 'amazon'}
-                        className="bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        {saving === 'amazon' ? (
-                          <Key className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                          <Key className="h-4 w-4 mr-2" />
-                        )}
-                        Connect to Alexa
-                      </Button>
-                    ) : null;
-                  })()}
+                  {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && (
+                    <Button
+                      variant="secondary"
+                      onClick={startAlexaOAuth}
+                      disabled={saving === 'amazon'}
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      {saving === 'amazon' ? (
+                        <Key className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Key className="h-4 w-4 mr-2" />
+                      )}
+                      Connect to Alexa
+                    </Button>
+                  )}
                  
                  {getConfigStatus('alexa') && (
                    <Button
