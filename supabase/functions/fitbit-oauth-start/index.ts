@@ -13,6 +13,8 @@ serve(async (req) => {
 
   try {
     console.log('Fitbit OAuth start function called')
+    console.log('Request method:', req.method)
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -21,7 +23,10 @@ serve(async (req) => {
 
     // Get the auth header to identify the user
     const authHeader = req.headers.get('authorization')
+    console.log('Auth header present:', !!authHeader)
+    
     if (!authHeader) {
+      console.log('No authorization header provided')
       return new Response(
         JSON.stringify({ error: 'Authorization required' }),
         { 
@@ -32,10 +37,24 @@ serve(async (req) => {
     }
 
     // Get user from auth header
+    console.log('Getting user from auth header...')
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (authError || !user) {
+    
+    if (authError) {
+      console.log('Auth error:', authError)
       return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
+        JSON.stringify({ error: `Authentication error: ${authError.message}` }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+    
+    if (!user) {
+      console.log('No user found')
+      return new Response(
+        JSON.stringify({ error: 'User not found' }),
         { 
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -43,7 +62,10 @@ serve(async (req) => {
       )
     }
 
+    console.log('User found:', user.id)
+
     // Get Fitbit configuration
+    console.log('Fetching Fitbit configuration...')
     const { data: config, error: configError } = await supabase
       .from('api_configurations')
       .select('*')
@@ -51,7 +73,38 @@ serve(async (req) => {
       .eq('service_name', 'fitbit')
       .maybeSingle()
 
-    if (configError || !config || !config.client_id || !config.redirect_url) {
+    console.log('Config query error:', configError)
+    console.log('Config found:', !!config)
+    
+    if (configError) {
+      console.log('Database error:', configError)
+      return new Response(
+        JSON.stringify({ error: `Database error: ${configError.message}` }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (!config) {
+      console.log('No Fitbit configuration found')
+      return new Response(
+        JSON.stringify({ 
+          error: 'No Fitbit configuration found. Please configure Client ID and Redirect URL first.' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log('Config client_id:', !!config.client_id)
+    console.log('Config redirect_url:', !!config.redirect_url)
+
+    if (!config.client_id || !config.redirect_url) {
+      console.log('Missing required config fields')
       return new Response(
         JSON.stringify({ 
           error: 'Missing Fitbit configuration. Please configure Client ID and Redirect URL first.' 
@@ -65,6 +118,7 @@ serve(async (req) => {
 
     // Generate state parameter for security
     const state = crypto.randomUUID()
+    console.log('Generated state:', state)
     
     // Store state temporarily (in a real app, you'd use a more persistent store)
     // For now, we'll include the user_id in the state to validate later
@@ -83,20 +137,29 @@ serve(async (req) => {
 
     console.log('Generated OAuth URL:', authUrl.toString())
 
+    const response = {
+      authUrl: authUrl.toString(),
+      message: 'Redirect to this URL to authorize Fitbit access'
+    }
+
+    console.log('Returning success response:', response)
+
     return new Response(
-      JSON.stringify({ 
-        authUrl: authUrl.toString(),
-        message: 'Redirect to this URL to authorize Fitbit access'
-      }),
+      JSON.stringify(response),
       { 
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
 
   } catch (error) {
-    console.error('Error in fitbit-oauth-start function:', error)
+    console.error('Unexpected error in fitbit-oauth-start function:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: `Server error: ${error.message}`,
+        details: error.stack 
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
