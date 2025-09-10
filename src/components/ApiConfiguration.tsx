@@ -198,13 +198,31 @@ const ApiConfiguration = () => {
     try {
       setSaving('fitbit');
       
+      console.log('Starting Fitbit OAuth...');
+      console.log('User:', user?.id);
+      console.log('Fitbit config:', fitbitConfig);
+      
       const { data, error } = await supabase.functions.invoke('fitbit-oauth-start');
       
-      if (error) throw error;
+      console.log('OAuth response data:', data);
+      console.log('OAuth response error:', error);
       
-      if (data.error) {
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+      }
+      
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
         throw new Error(data.error);
       }
+
+      if (!data?.authUrl) {
+        console.error('No authUrl in response:', data);
+        throw new Error('No authorization URL received from server');
+      }
+
+      console.log('Opening OAuth popup with URL:', data.authUrl);
 
       // Open OAuth URL in popup
       const popup = window.open(
@@ -213,8 +231,13 @@ const ApiConfiguration = () => {
         'width=600,height=700,scrollbars=yes,resizable=yes'
       );
 
+      if (!popup) {
+        throw new Error('Failed to open popup window. Please check popup blocker settings.');
+      }
+
       // Listen for OAuth completion
       const messageListener = (event: MessageEvent) => {
+        console.log('Received message:', event);
         if (event.data.type === 'fitbit_oauth_success') {
           popup?.close();
           window.removeEventListener('message', messageListener);
@@ -226,6 +249,7 @@ const ApiConfiguration = () => {
           
           // Refresh configurations
           fetchConfigs();
+          setSaving(null);
         }
       };
 
@@ -241,13 +265,14 @@ const ApiConfiguration = () => {
       }, 1000);
 
     } catch (error) {
-      console.error('Error starting OAuth:', error);
+      console.error('OAuth error details:', error);
+      console.error('Error stack:', error.stack);
+      
       toast({
         title: "OAuth Failed",
         description: error.message || "Failed to start Fitbit authorization",
         variant: "destructive",
       });
-    } finally {
       setSaving(null);
     }
   };
