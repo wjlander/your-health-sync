@@ -47,6 +47,14 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        health: {
+          primary: "hsl(var(--health-primary))",
+          secondary: "hsl(var(--health-secondary))",
+          accent: "hsl(var(--health-accent))",
+          success: "hsl(var(--health-success))",
+          warning: "hsl(var(--health-warning))",
+          error: "hsl(var(--health-error))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -57,6 +65,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+      },
+      backgroundImage: {
+        'gradient-health': 'var(--gradient-health)',
+        'gradient-vitality': 'var(--gradient-vitality)',
+        'gradient-wellness': 'var(--gradient-wellness)',
       },
       borderRadius: {
         lg: "var(--radius)",
