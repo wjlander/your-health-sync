@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +20,9 @@ interface TrackerConfig {
   icon: string;
   increment_value: number;
   current_value: number;
+  has_target?: boolean;
+  target_value?: number;
+  target_direction?: 'above' | 'below';
 }
 
 const PRESET_TRACKERS = [
@@ -46,6 +50,9 @@ export function CustomTrackers() {
   const [newIcon, setNewIcon] = useState('📊');
   const [newIncrement, setNewIncrement] = useState('1');
   const [selectedPreset, setSelectedPreset] = useState('');
+  const [newHasTarget, setNewHasTarget] = useState(false);
+  const [newTargetValue, setNewTargetValue] = useState('');
+  const [newTargetDirection, setNewTargetDirection] = useState<'above' | 'below'>('above');
 
   useEffect(() => {
     if (user) {
@@ -103,7 +110,10 @@ export function CustomTrackers() {
         unit: newUnit,
         icon: newIcon,
         increment_value: parseFloat(newIncrement) || 1,
-        current_value: 0
+        current_value: 0,
+        has_target: newHasTarget,
+        target_value: newHasTarget ? parseFloat(newTargetValue) || undefined : undefined,
+        target_direction: newHasTarget ? newTargetDirection : undefined
       };
 
       // Save to localStorage
@@ -118,6 +128,9 @@ export function CustomTrackers() {
       setNewIcon('📊');
       setNewIncrement('1');
       setSelectedPreset('');
+      setNewHasTarget(false);
+      setNewTargetValue('');
+      setNewTargetDirection('above');
       setShowAddDialog(false);
 
       toast({
@@ -266,6 +279,42 @@ export function CustomTrackers() {
                   onChange={(e) => setNewIncrement(e.target.value)}
                 />
               </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="has-target"
+                  checked={newHasTarget}
+                  onCheckedChange={setNewHasTarget}
+                />
+                <Label htmlFor="has-target">Set a target</Label>
+              </div>
+              
+              {newHasTarget && (
+                <>
+                  <div>
+                    <Label htmlFor="target-value">Target Value</Label>
+                    <Input
+                      id="target-value"
+                      type="number"
+                      step="0.1"
+                      value={newTargetValue}
+                      onChange={(e) => setNewTargetValue(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="target-direction">Target Direction</Label>
+                    <Select value={newTargetDirection} onValueChange={(value: 'above' | 'below') => setNewTargetDirection(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="above">Above target is good 📈</SelectItem>
+                        <SelectItem value="below">Below target is good 📉</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
               
               <div className="flex justify-between">
                 <Button variant="outline" onClick={() => setShowAddDialog(false)}>

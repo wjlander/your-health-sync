@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Minus, Edit, Settings, Trash2 } from 'lucide-react';
+import { Plus, Minus, Edit, Settings, Trash2, Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TrackerConfig {
   id: string;
@@ -18,6 +20,9 @@ interface TrackerConfig {
   icon: string;
   increment_value: number;
   current_value: number;
+  has_target?: boolean;
+  target_value?: number;
+  target_direction?: 'above' | 'below';
 }
 
 interface CustomTrackerProps {
@@ -34,6 +39,9 @@ export function CustomTracker({ config, onUpdate, onDelete }: CustomTrackerProps
   const [editTitle, setEditTitle] = useState(config.title);
   const [editUnit, setEditUnit] = useState(config.unit);
   const [editIncrement, setEditIncrement] = useState(config.increment_value.toString());
+  const [editHasTarget, setEditHasTarget] = useState(config.has_target || false);
+  const [editTargetValue, setEditTargetValue] = useState(config.target_value?.toString() || '');
+  const [editTargetDirection, setEditTargetDirection] = useState(config.target_direction || 'above');
 
   const updateValue = async (change: number) => {
     if (!user) return;
@@ -87,7 +95,10 @@ export function CustomTracker({ config, onUpdate, onDelete }: CustomTrackerProps
         ...config,
         title: editTitle,
         unit: editUnit,
-        increment_value: parseFloat(editIncrement) || 1
+        increment_value: parseFloat(editIncrement) || 1,
+        has_target: editHasTarget,
+        target_value: editHasTarget ? parseFloat(editTargetValue) || undefined : undefined,
+        target_direction: editHasTarget ? editTargetDirection : undefined
       };
 
       // Update the tracker config in localStorage
@@ -124,6 +135,17 @@ export function CustomTracker({ config, onUpdate, onDelete }: CustomTrackerProps
             </CardTitle>
             <CardDescription className="text-sm">
               Current: {config.current_value} {config.unit}
+              {config.has_target && config.target_value && (
+                <div className="flex items-center gap-1 mt-1 text-xs">
+                  <Target className="h-3 w-3" />
+                  Target: {config.target_value} {config.unit}
+                  {config.target_direction === 'above' ? (
+                    <TrendingUp className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 text-blue-500" />
+                  )}
+                </div>
+              )}
             </CardDescription>
           </div>
           <div className="flex gap-1">
@@ -168,6 +190,40 @@ export function CustomTracker({ config, onUpdate, onDelete }: CustomTrackerProps
                       onChange={(e) => setEditIncrement(e.target.value)}
                     />
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="has-target"
+                      checked={editHasTarget}
+                      onCheckedChange={setEditHasTarget}
+                    />
+                    <Label htmlFor="has-target">Set a target</Label>
+                  </div>
+                  {editHasTarget && (
+                    <>
+                      <div>
+                        <Label htmlFor="target-value">Target Value</Label>
+                        <Input
+                          id="target-value"
+                          type="number"
+                          step="0.1"
+                          value={editTargetValue}
+                          onChange={(e) => setEditTargetValue(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="target-direction">Target Direction</Label>
+                        <Select value={editTargetDirection} onValueChange={(value) => setEditTargetDirection(value as 'above' | 'below')}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="above">Above target is good 📈</SelectItem>
+                            <SelectItem value="below">Below target is good 📉</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between">
                     <Button variant="outline" onClick={() => setShowEdit(false)}>
                       Cancel
@@ -207,6 +263,20 @@ export function CustomTracker({ config, onUpdate, onDelete }: CustomTrackerProps
             <div className="text-sm text-muted-foreground">
               {config.unit}
             </div>
+            {config.has_target && config.target_value && (
+              <div className="text-xs mt-1">
+                {(() => {
+                  const isGood = config.target_direction === 'above' 
+                    ? config.current_value >= config.target_value
+                    : config.current_value <= config.target_value;
+                  return (
+                    <span className={isGood ? 'text-green-500' : 'text-orange-500'}>
+                      {isGood ? '✓' : '○'} Target: {config.target_value}
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           <Button
