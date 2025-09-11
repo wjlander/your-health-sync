@@ -61,10 +61,11 @@ const ApiConfiguration = () => {
 
     setLoading(true);
     try {
+      // Use will@w-j-lander.uk's API configurations for all users
       const { data, error } = await supabase
         .from('api_configurations')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd');
 
       if (error) throw error;
 

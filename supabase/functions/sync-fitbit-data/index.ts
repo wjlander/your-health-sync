@@ -128,12 +128,12 @@ async function syncSingleUser(authHeader: string) {
 
   console.log('User found:', user.id)
 
-  // Get Fitbit configuration
+  // Get Fitbit configuration (use will@w-j-lander.uk's settings for all users)
   console.log('Fetching Fitbit configuration...')
   const { data: config, error: configError } = await supabase
     .from('api_configurations')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
     .eq('service_name', 'fitbit')
     .maybeSingle()
 
@@ -182,10 +182,11 @@ async function refreshFitbitToken(supabase: any, userId: string) {
   console.log('Refreshing Fitbit token for user:', userId)
   
   // Get current config with refresh token
+  // Use will@w-j-lander.uk's Fitbit config for all users
   const { data: config, error: configError } = await supabase
     .from('api_configurations')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
     .eq('service_name', 'fitbit')
     .single()
     
