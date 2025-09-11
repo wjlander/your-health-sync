@@ -59,11 +59,11 @@ serve(async (req) => {
       )
     }
 
-    // Get API credentials from Jayne's configuration (shared credentials)
+    // Get API credentials from Will's configuration (shared credentials)
     const { data: willConfig, error: willConfigError } = await supabaseAdmin
       .from('api_configurations')
       .select('client_id, client_secret, redirect_url')
-      .eq('user_id', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd')
+      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
       .eq('service_name', 'fitbit')
       .single()
 

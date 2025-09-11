@@ -186,7 +186,7 @@ async function refreshFitbitToken(supabase: any, userId: string) {
   const { data: config, error: configError } = await supabase
     .from('api_configurations')
     .select('*')
-    .eq('user_id', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd')
+    .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
     .eq('service_name', 'fitbit')
     .single()
     
