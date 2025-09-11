@@ -81,21 +81,38 @@ const HealthMetrics = () => {
     try {
       const { data, error } = await supabase.functions.invoke('sync-fitbit-data');
       
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
       
       toast({
         title: "Sync Complete",
-        description: "Fitbit data has been synced successfully",
+        description: `Successfully synced ${data?.data?.length || 0} data points`,
       });
       
       fetchHealthData();
     } catch (error) {
       console.error('Error syncing Fitbit data:', error);
-      toast({
-        title: "Sync Failed",
-        description: "Failed to sync Fitbit data. Please check your API configuration.",
-        variant: "destructive",
-      });
+      
+      // Check if it's an authentication error
+      const errorMessage = error.message || 'Unknown error';
+      if (errorMessage.includes('token') || errorMessage.includes('authorization') || errorMessage.includes('expired')) {
+        toast({
+          title: "Authentication Required",
+          description: "Your Fitbit token has expired. Please reconnect your Fitbit account in API Configuration.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setSyncing(false);
     }

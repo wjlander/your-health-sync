@@ -178,9 +178,78 @@ async function syncSingleUser(authHeader: string) {
   )
 }
 
-async function syncUserData(supabase: any, userId: string, accessToken: string) {
+async function refreshFitbitToken(supabase: any, userId: string) {
+  console.log('Refreshing Fitbit token for user:', userId)
+  
+  // Get current config with refresh token
+  const { data: config, error: configError } = await supabase
+    .from('api_configurations')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('service_name', 'fitbit')
+    .single()
+    
+  if (configError || !config?.refresh_token) {
+    console.log('No refresh token found:', configError)
+    throw new Error('No refresh token available. Please re-authorize Fitbit.')
+  }
+  
+  // Refresh the token
+  const refreshResponse = await fetch('https://api.fitbit.com/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${config.client_id}:${config.client_secret}`)}`
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: config.refresh_token
+    })
+  })
+  
+  if (!refreshResponse.ok) {
+    const errorText = await refreshResponse.text()
+    console.log('Token refresh failed:', refreshResponse.status, errorText)
+    throw new Error('Failed to refresh Fitbit token. Please re-authorize.')
+  }
+  
+  const tokenData = await refreshResponse.json()
+  console.log('Token refresh successful')
+  
+  // Update the configuration with new tokens
+  const { error: updateError } = await supabase
+    .from('api_configurations')
+    .update({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', config.id)
+    
+  if (updateError) {
+    console.log('Failed to update tokens:', updateError)
+    throw new Error('Failed to save new tokens')
+  }
+  
+  return tokenData.access_token
+}
 
+async function syncUserData(supabase: any, userId: string, accessToken: string) {
   console.log('Syncing Fitbit data for user:', userId)
+  
+  // Check if token is expired and refresh if needed
+  const { data: config } = await supabase
+    .from('api_configurations')
+    .select('expires_at')
+    .eq('user_id', userId)
+    .eq('service_name', 'fitbit')
+    .single()
+    
+  if (config?.expires_at && new Date(config.expires_at) <= new Date()) {
+    console.log('Token expired, refreshing...')
+    accessToken = await refreshFitbitToken(supabase, userId)
+  }
 
   // Get date range for last 14 days
   const today = new Date()
@@ -237,6 +306,10 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
             }
           }
         }
+      } else if (heartRateResponse.status === 401) {
+        console.log('Heart rate API 401 - token expired, attempting refresh...')
+        accessToken = await refreshFitbitToken(supabase, userId)
+        throw new Error('Token refreshed, please retry sync')
       } else {
         console.log('Heart rate API error:', heartRateResponse.status, await heartRateResponse.text())
       }
@@ -283,6 +356,10 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
             }
           }
         }
+      } else if (stepsResponse.status === 401) {
+        console.log('Steps API 401 - token expired, attempting refresh...')
+        accessToken = await refreshFitbitToken(supabase, userId)
+        throw new Error('Token refreshed, please retry sync')
       } else {
         console.log('Steps API error:', stepsResponse.status, await stepsResponse.text())
       }
@@ -332,6 +409,10 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
               }
             }
           }
+        } else if (weightResponse.status === 401) {
+          console.log('Weight API 401 - token expired, attempting refresh...')
+          accessToken = await refreshFitbitToken(supabase, userId)
+          throw new Error('Token refreshed, please retry sync')
         } else {
           console.log(`Weight API error for ${dateStr}:`, weightResponse.status)
         }
