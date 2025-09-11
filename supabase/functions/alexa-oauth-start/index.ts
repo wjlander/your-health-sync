@@ -114,9 +114,9 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Build Alexa Skill OAuth URL - Account Linking with Reminders API access
-    const scope = 'alexa::alerts:reminders:skill:readwrite'
-    console.log('Using scope for Alexa Skill OAuth:', scope)
+    // Build Alexa OAuth URL for accessing user's Alexa data
+    const scope = 'alexa:all'
+    console.log('Using scope for Alexa OAuth:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
