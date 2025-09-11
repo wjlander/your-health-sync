@@ -76,6 +76,17 @@ export function WeightGoals() {
     if (!user) return;
 
     try {
+      // Fetch user units preference first
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('units_preference')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileData) {
+        setUserUnits(profileData.units_preference as UnitsType || 'imperial');
+      }
+
       // Fetch active goal
       const { data: goals } = await supabase
         .from('weight_goals')
@@ -143,29 +154,46 @@ export function WeightGoals() {
 
   const calculateSuggestedValues = (startWeight: number, targetWeightInput: number) => {
     const totalLoss = startWeight - targetWeightInput;
-    const recommendedWeeklyLoss = Math.min(2, Math.max(0.5, totalLoss / 20)); // 0.5-2 lbs per week
-    const recommendedDeficit = Math.round(recommendedWeeklyLoss * 3500 / 7); // 3500 calories per pound
-    const estimatedWeeks = Math.ceil(totalLoss / recommendedWeeklyLoss);
+    
+    // Convert to lbs for calculation if needed (stored weights are in kg in DB)
+    const totalLossLbs = userUnits === 'metric' ? totalLoss * 2.20462 : totalLoss;
+    
+    // Safe weekly loss: 0.5-2 lbs per week, adjust for total loss
+    const recommendedWeeklyLossLbs = Math.min(2, Math.max(0.5, totalLossLbs / 20));
+    
+    // Convert back to user's units for display
+    const recommendedWeeklyLoss = userUnits === 'metric' ? recommendedWeeklyLossLbs / 2.20462 : recommendedWeeklyLossLbs;
+    
+    // Calculate calorie deficit (3500 calories per lb of fat)
+    const recommendedDeficit = Math.round(recommendedWeeklyLossLbs * 3500 / 7);
+    
+    // Calculate estimated weeks and target date
+    const estimatedWeeks = Math.ceil(totalLossLbs / recommendedWeeklyLossLbs);
+    const suggestedTargetDate = new Date();
+    suggestedTargetDate.setDate(suggestedTargetDate.getDate() + (estimatedWeeks * 7));
     
     return {
       weeklyLoss: recommendedWeeklyLoss,
       dailyDeficit: recommendedDeficit,
-      estimatedWeeks
+      estimatedWeeks,
+      suggestedTargetDate
     };
   };
 
   const handleCreateGoal = async () => {
     if (!user || !currentWeight || !targetWeight) return;
 
-    // Convert input weights back to lbs for storage
-    const targetWeightInLbs = convertWeight(parseFloat(targetWeight), userUnits, 'imperial');
-    const weeklyLossInLbs = convertWeight(parseFloat(weeklyLoss), userUnits, 'imperial');
+    // Convert input weights to kg for storage (DB stores in kg)
+    const targetWeightInKg = userUnits === 'imperial' ? parseFloat(targetWeight) / 2.20462 : parseFloat(targetWeight);
+    const weeklyLossInKg = userUnits === 'imperial' ? parseFloat(weeklyLoss) / 2.20462 : parseFloat(weeklyLoss);
     const dailyDeficitNum = parseInt(dailyDeficit);
 
-    const totalLoss = currentWeight - targetWeightInLbs;
-    const estimatedWeeks = Math.ceil(totalLoss / weeklyLossInLbs);
-    const calculatedTargetDate = new Date();
-    calculatedTargetDate.setDate(calculatedTargetDate.getDate() + (estimatedWeeks * 7));
+    const totalLoss = currentWeight - targetWeightInKg;
+    const estimatedWeeks = Math.ceil(totalLoss / weeklyLossInKg);
+    const calculatedTargetDate = targetDate || new Date();
+    if (!targetDate) {
+      calculatedTargetDate.setDate(calculatedTargetDate.getDate() + (estimatedWeeks * 7));
+    }
 
     try {
       // Deactivate existing goal
@@ -182,10 +210,10 @@ export function WeightGoals() {
         .insert([{
           user_id: user.id,
           start_weight: currentWeight,
-          target_weight: targetWeightInLbs,
-          weekly_loss_target: weeklyLossInLbs,
+          target_weight: targetWeightInKg,
+          weekly_loss_target: weeklyLossInKg,
           daily_calorie_deficit: dailyDeficitNum,
-          target_date: targetDate ? targetDate.toISOString().split('T')[0] : calculatedTargetDate.toISOString().split('T')[0]
+          target_date: calculatedTargetDate.toISOString().split('T')[0]
         }])
         .select()
         .single();
@@ -215,16 +243,16 @@ export function WeightGoals() {
     const currentDeficit = caloriesData ? (caloriesData.burned - caloriesData.consumed) : 0;
 
     try {
-      // Convert weight back to lbs for storage
-      const weightInLbs = todayWeight ? 
-        convertWeight(parseFloat(todayWeight), userUnits, 'imperial') : 
+      // Convert weight to kg for storage (DB stores in kg)
+      const weightInKg = todayWeight ? 
+        (userUnits === 'imperial' ? parseFloat(todayWeight) / 2.20462 : parseFloat(todayWeight)) : 
         currentWeight;
 
       const progressData = {
         user_id: user.id,
         goal_id: activeGoal.id,
         date: today,
-        current_weight: weightInLbs,
+        current_weight: weightInKg,
         calories_consumed: caloriesData?.consumed || 0,
         calories_burned: caloriesData?.burned || 0,
         calorie_deficit_achieved: currentDeficit,
@@ -280,10 +308,10 @@ export function WeightGoals() {
   const currentDeficit = caloriesData ? (caloriesData.burned - caloriesData.consumed) : 0;
   const deficitProgress = activeGoal ? Math.max(0, (currentDeficit / activeGoal.daily_calorie_deficit) * 100) : 0;
 
-  // Convert weights for display
-  const displayCurrentWeight = currentWeight ? convertWeight(currentWeight, 'imperial', userUnits) : null;
-  const displayStartWeight = activeGoal ? convertWeight(activeGoal.start_weight, 'imperial', userUnits) : null;
-  const displayTargetWeight = activeGoal ? convertWeight(activeGoal.target_weight, 'imperial', userUnits) : null;
+  // Convert weights for display (DB stores in kg, convert to user's preferred units)
+  const displayCurrentWeight = currentWeight ? (userUnits === 'imperial' ? currentWeight * 2.20462 : currentWeight) : null;
+  const displayStartWeight = activeGoal ? (userUnits === 'imperial' ? activeGoal.start_weight * 2.20462 : activeGoal.start_weight) : null;
+  const displayTargetWeight = activeGoal ? (userUnits === 'imperial' ? activeGoal.target_weight * 2.20462 : activeGoal.target_weight) : null;
   const weightUnit = getWeightUnit(userUnits);
 
   return (
@@ -316,11 +344,12 @@ export function WeightGoals() {
                     onChange={(e) => {
                       setTargetWeight(e.target.value);
                       if (currentWeight && e.target.value) {
-                        // Convert input back to lbs for calculation
-                        const targetInLbs = convertWeight(parseFloat(e.target.value), userUnits, 'imperial');
-                        const suggested = calculateSuggestedValues(currentWeight, targetInLbs);
+                        // Calculate suggestions and auto-set target date
+                        const targetWeightValue = parseFloat(e.target.value);
+                        const suggested = calculateSuggestedValues(currentWeight, targetWeightValue);
                         setWeeklyLoss(suggested.weeklyLoss.toFixed(1));
                         setDailyDeficit(suggested.dailyDeficit.toString());
+                        setTargetDate(suggested.suggestedTargetDate);
                       }
                     }}
                     placeholder={`Enter target weight in ${weightUnit}`}
@@ -333,7 +362,16 @@ export function WeightGoals() {
                     type="number"
                     step="0.1"
                     value={weeklyLoss}
-                    onChange={(e) => setWeeklyLoss(e.target.value)}
+                    onChange={(e) => {
+                      setWeeklyLoss(e.target.value);
+                      // Recalculate calorie deficit when weekly loss changes
+                      if (e.target.value) {
+                        const weeklyLossValue = parseFloat(e.target.value);
+                        const weeklyLossLbs = userUnits === 'metric' ? weeklyLossValue * 2.20462 : weeklyLossValue;
+                        const newDeficit = Math.round(weeklyLossLbs * 3500 / 7);
+                        setDailyDeficit(newDeficit.toString());
+                      }
+                    }}
                   />
                 </div>
                 <div>
