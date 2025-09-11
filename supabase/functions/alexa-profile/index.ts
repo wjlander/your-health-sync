@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  console.log('=== ALEXA REMINDERS API ===')
+  console.log('=== ALEXA PROFILE API ===')
   console.log('Method:', req.method)
   
   if (req.method === 'OPTIONS') {
@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Processing Alexa Reminders request...')
+    console.log('Processing Alexa profile request...')
     
     // Parse request body
     const body = await req.json()
@@ -74,7 +74,7 @@ serve(async (req) => {
       .from('api_configurations')
       .select('*')
       .eq('user_id', user.id)
-      .eq('service_name', 'amazon')
+      .eq('service_name', 'alexa')
       .single()
 
     if (configError || !config) {
@@ -101,10 +101,11 @@ serve(async (req) => {
 
     console.log('Found Alexa config with access token')
 
-    // Handle different actions
-    if (action === 'list') {
-      console.log('Fetching reminders list...')
-      const response = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
+    // Account Linking tokens only provide access to user profile, not Alexa APIs
+    // This function now provides user profile information from Login with Amazon
+    if (action === 'profile') {
+      console.log('Fetching user profile from Login with Amazon...')
+      const response = await fetch('https://api.amazon.com/user/profile', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${config.access_token}`,
@@ -114,7 +115,7 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Alexa API error:', response.status, errorText)
+        console.error('Amazon API error:', response.status, errorText)
         
         if (response.status === 401) {
           return new Response(
@@ -127,7 +128,7 @@ serve(async (req) => {
         }
         
         return new Response(
-          JSON.stringify({ error: `Alexa API error: ${response.status}` }),
+          JSON.stringify({ error: `Amazon API error: ${response.status}` }),
           { 
             status: response.status, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -138,7 +139,8 @@ serve(async (req) => {
       const result = await response.json()
       return new Response(JSON.stringify({ 
         success: true, 
-        data: result 
+        data: result,
+        note: 'This is Login with Amazon profile data. Reminders API requires different credentials.'
       }), {
         status: 200,
         headers: { 
@@ -147,89 +149,18 @@ serve(async (req) => {
         }
       })
 
-    } else if (action === 'create') {
-      console.log('Creating reminder...')
-      const { reminderText, triggerTime } = body
-      
-      if (!reminderText || !triggerTime) {
-        return new Response(
-          JSON.stringify({ error: 'Missing reminderText or triggerTime' }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      const reminderData = {
-        requestTime: new Date().toISOString(),
-        trigger: {
-          type: 'SCHEDULED_ABSOLUTE',
-          scheduledTime: triggerTime
-        },
-        alertInfo: {
-          spokenInfo: {
-            content: [{
-              locale: 'en-US',
-              text: reminderText
-            }]
-          }
-        },
-        pushNotification: {
-          status: 'ENABLED'
+    } else if (action === 'create' || action === 'list') {
+      console.log('Reminders not available with Account Linking')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Account Linking credentials do not provide access to Alexa Reminders API. You need AVS credentials or use skill-based reminders.',
+          suggestion: 'Consider having your skill create reminders when users interact with it via voice.'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      }
-
-      const response = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(reminderData)
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Alexa API error:', response.status, errorText)
-        
-        if (response.status === 401) {
-          return new Response(
-            JSON.stringify({ error: 'Access token expired. Please re-authorize Alexa access.' }),
-            { 
-              status: 401, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          )
-        }
-        
-        return new Response(
-          JSON.stringify({ error: `Alexa API error: ${response.status}` }),
-          { 
-            status: response.status, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      let result
-      const responseText = await response.text()
-      try {
-        result = responseText ? JSON.parse(responseText) : {}
-      } catch {
-        result = { success: true, response: responseText }
-      }
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        data: result 
-      }), {
-        status: 200,
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        }
-      })
+      )
 
     } else {
       return new Response(
