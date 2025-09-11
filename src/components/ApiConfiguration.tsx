@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Save, Key, Calendar, Smartphone, Check, AlertCircle } from 'lucide-react';
+import { Save, Key, Calendar, Smartphone, Check, AlertCircle, Info } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface ApiConfig {
@@ -61,18 +61,40 @@ const ApiConfiguration = () => {
 
     setLoading(true);
     try {
-      // Use will@w-j-lander.uk's API configurations for all users
-      const { data, error } = await supabase
+      // Fetch will's API configurations to display credentials
+      const { data: willConfigs, error: willError } = await supabase
         .from('api_configurations')
         .select('*')
         .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd');
 
-      if (error) throw error;
+      if (willError) throw willError;
 
-      setConfigs(data || []);
+      // Fetch user's own configurations to check connection status
+      const { data: userConfigs, error: userError } = await supabase
+        .from('api_configurations')
+        .select('*')
+        .eq('user_id', user.id);
 
-      // Populate form states
-      data?.forEach((config) => {
+      if (userError && userError.code !== 'PGRST116') throw userError; // Ignore "no rows" error
+
+      // Merge configs: use will's credentials but show user's connection status
+      const mergedConfigs = willConfigs?.map(willConfig => {
+        const userConfig = userConfigs?.find(uc => uc.service_name === willConfig.service_name);
+        return {
+          ...willConfig,
+          id: userConfig?.id || willConfig.id,
+          access_token: userConfig?.access_token || null,
+          refresh_token: userConfig?.refresh_token || null,
+          expires_at: userConfig?.expires_at || null,
+          is_connected: !!userConfig?.access_token,
+          user_id: user.id // Keep current user's ID for operations
+        };
+      }) || [];
+
+      setConfigs(mergedConfigs);
+
+      // Populate form states with will's credentials
+      mergedConfigs?.forEach((config) => {
         switch (config.service_name) {
           case 'fitbit':
             setFitbitConfig({
@@ -518,6 +540,15 @@ const ApiConfiguration = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <p className="text-sm text-blue-800">
+                    <strong>Shared Credentials:</strong> API credentials are provided system-wide. 
+                    Click "Connect to Fitbit" to link your personal Fitbit account.
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fitbit-client-id">Client ID</Label>
@@ -527,6 +558,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Fitbit Client ID"
                     value={fitbitConfig.client_id}
                     onChange={(e) => setFitbitConfig({ ...fitbitConfig, client_id: e.target.value })}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2">
@@ -537,6 +569,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Fitbit Client Secret"
                     value={fitbitConfig.client_secret}
                     onChange={(e) => setFitbitConfig({ ...fitbitConfig, client_secret: e.target.value })}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2">
@@ -621,6 +654,15 @@ const ApiConfiguration = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <p className="text-sm text-blue-800">
+                    <strong>Shared Credentials:</strong> API credentials are provided system-wide. 
+                    Click "Connect to Google" to link your personal Google account.
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="google-client-id">Client ID</Label>
@@ -630,6 +672,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Google Client ID"
                     value={googleConfig.client_id}
                     onChange={(e) => setGoogleConfig({ ...googleConfig, client_id: e.target.value })}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2">
@@ -640,6 +683,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Google Client Secret"
                     value={googleConfig.client_secret}
                     onChange={(e) => setGoogleConfig({ ...googleConfig, client_secret: e.target.value })}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -650,6 +694,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Google Calendar API Key"
                     value={googleConfig.api_key}
                     onChange={(e) => setGoogleConfig({ ...googleConfig, api_key: e.target.value })}
+                    disabled
                   />
                  </div>
                  <div className="space-y-2 md:col-span-2">
@@ -668,21 +713,9 @@ const ApiConfiguration = () => {
                    </p>
                  </div>
                </div>
-               <div className="flex space-x-2">
-                 <Button
-                   onClick={() => saveConfig('google', googleConfig)}
-                   disabled={saving === 'google'}
-                   className="bg-health-primary hover:bg-health-secondary"
-                 >
-                   {saving === 'google' ? (
-                     <Key className="h-4 w-4 animate-spin mr-2" />
-                   ) : (
-                     <Save className="h-4 w-4 mr-2" />
-                   )}
-                   {saving === 'google' ? 'Saving...' : 'Save Configuration'}
-                 </Button>
-                 
-                 {getConfigStatus('google') && googleConfig.client_id && googleConfig.client_secret && (
+                <div className="flex space-x-2">
+                  {/* Remove Save Config button since credentials are read-only */}
+                  {getConfigStatus('google') && googleConfig.client_id && googleConfig.client_secret && (
                    <Button
                      variant="secondary"
                      onClick={startGoogleOAuth}
@@ -735,6 +768,15 @@ const ApiConfiguration = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <p className="text-sm text-blue-800">
+                    <strong>Shared Credentials:</strong> API credentials are provided system-wide. 
+                    Click "Connect to Alexa" to link your personal Amazon account.
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="amazon-client-id">Client ID</Label>
@@ -744,6 +786,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Alexa Skill Client ID"
                     value={amazonConfig.client_id}
                     onChange={(e) => setAmazonConfig({ ...amazonConfig, client_id: e.target.value })}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2">
@@ -754,6 +797,7 @@ const ApiConfiguration = () => {
                     placeholder="Enter Alexa Skill Client Secret"
                     value={amazonConfig.client_secret}
                     onChange={(e) => setAmazonConfig({ ...amazonConfig, client_secret: e.target.value })}
+                    disabled
                   />
                  </div>
                  <div className="space-y-2 md:col-span-2">
@@ -764,6 +808,7 @@ const ApiConfiguration = () => {
                      placeholder="Enter Alexa Skill ID (amzn1.ask.skill.xxxx)"
                      value={amazonConfig.skill_id}
                      onChange={(e) => setAmazonConfig({ ...amazonConfig, skill_id: e.target.value })}
+                     disabled
                    />
                  </div>
                  <div className="space-y-2 md:col-span-2">
@@ -782,25 +827,9 @@ const ApiConfiguration = () => {
                     </p>
                  </div>
                </div>
-               <div className="flex space-x-2">
-                  <Button
-                    onClick={() => saveConfig('alexa', { 
-                      client_id: amazonConfig.client_id, 
-                      client_secret: amazonConfig.client_secret, 
-                      api_key: amazonConfig.skill_id 
-                    })}
-                    disabled={saving === 'amazon'}
-                    className="bg-health-primary hover:bg-health-secondary"
-                  >
-                   {saving === 'amazon' ? (
-                     <Key className="h-4 w-4 animate-spin mr-2" />
-                   ) : (
-                     <Save className="h-4 w-4 mr-2" />
-                   )}
-                   {saving === 'amazon' ? 'Saving...' : 'Save Configuration'}
-                 </Button>
-                 
-                  {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && amazonConfig.skill_id && (
+                <div className="flex space-x-2">
+                  {/* Remove Save Config button since credentials are read-only */}
+                   {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && amazonConfig.skill_id && (
                     <Button
                       variant="secondary"
                       onClick={startAlexaOAuth}

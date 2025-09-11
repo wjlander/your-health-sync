@@ -56,34 +56,68 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the user's Alexa configuration
-    const { data: config, error: configError } = await supabase
+    // Get API credentials from will@w-j-lander.uk's configuration
+    const { data: willConfig, error: willConfigError } = await supabase
+      .from('api_configurations')
+      .select('client_id, client_secret, redirect_url')
+      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
+      .eq('service_name', 'alexa')
+      .single()
+
+    if (willConfigError || !willConfig) {
+      console.log('Will\'s config not found:', willConfigError)
+      return new Response(
+        '<html><body><h1>Configuration Error</h1><p>System configuration not found</p><script>window.close();</script></body></html>',
+        { headers: { 'Content-Type': 'text/html' } }
+      )
+    }
+
+    // Check if user has their own configuration record, create if not exists
+    let { data: userConfig, error: userConfigError } = await supabase
       .from('api_configurations')
       .select('*')
       .eq('user_id', stateData.user_id)
       .eq('service_name', 'alexa')
       .single()
 
-    if (configError || !config) {
-      console.log('Config not found:', configError)
-      return new Response(
-        '<html><body><h1>Configuration Error</h1><p>Alexa configuration not found</p><script>window.close();</script></body></html>',
-        { headers: { 'Content-Type': 'text/html' } }
-      )
+    if (userConfigError || !userConfig) {
+      console.log('Creating new user config record')
+      // Create new configuration record for user
+      const { data: newConfig, error: createError } = await supabase
+        .from('api_configurations')
+        .insert({
+          user_id: stateData.user_id,
+          service_name: 'alexa',
+          client_id: willConfig.client_id,
+          client_secret: willConfig.client_secret,
+          redirect_url: willConfig.redirect_url,
+          is_active: true
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        console.log('Failed to create user config:', createError)
+        return new Response(
+          '<html><body><h1>Configuration Error</h1><p>Failed to create user configuration</p><script>window.close();</script></body></html>',
+          { headers: { 'Content-Type': 'text/html' } }
+        )
+      }
+      userConfig = newConfig
     }
 
     // Exchange code for tokens using Login with Amazon endpoint
     console.log('Exchanging code for tokens...')
-    console.log('Using client_id:', config.client_id)
-    console.log('Using redirect_uri:', config.redirect_url)
-    console.log('Client secret present:', !!config.client_secret)
+    console.log('Using client_id:', willConfig.client_id)
+    console.log('Using redirect_uri:', willConfig.redirect_url)
+    console.log('Client secret present:', !!willConfig.client_secret)
     
     const tokenParams = {
       grant_type: 'authorization_code',
       code: code,
-      redirect_uri: config.redirect_url,
-      client_id: config.client_id,
-      client_secret: config.client_secret
+      redirect_uri: willConfig.redirect_url,
+      client_id: willConfig.client_id,
+      client_secret: willConfig.client_secret
     }
     
     const tokenResponse = await fetch('https://api.amazon.com/auth/o2/token', {
@@ -118,7 +152,7 @@ serve(async (req) => {
         expires_at: expiresAt,
         updated_at: new Date().toISOString()
       })
-      .eq('id', config.id)
+      .eq('id', userConfig.id)
 
     if (updateError) {
       console.log('Failed to update configuration:', updateError)
