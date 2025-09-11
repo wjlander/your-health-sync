@@ -114,9 +114,9 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Build Alexa OAuth URL for accessing user's Alexa data
-    const scope = 'alexa:all'
-    console.log('Using scope for Alexa OAuth:', scope)
+    // Use Login with Amazon scope - valid scopes are: profile, profile:user_id, postal_code
+    const scope = 'profile'
+    console.log('Using Login with Amazon scope:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
