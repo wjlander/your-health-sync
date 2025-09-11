@@ -131,7 +131,14 @@ const HealthMetrics = () => {
         return <Moon className="h-5 w-5 text-health-secondary" />;
       case 'weight':
         return <Scale className="h-5 w-5 text-health-primary" />;
+      // Custom tracker icons from metadata
       default:
+        // Try to get icon from custom trackers
+        const customTrackers = JSON.parse(localStorage.getItem(`custom_trackers_${user?.id}`) || '[]');
+        const tracker = customTrackers.find((t: any) => t.data_type === dataType);
+        if (tracker && tracker.icon) {
+          return <span className="text-lg">{tracker.icon}</span>;
+        }
         return <Activity className="h-5 w-5 text-health-primary" />;
     }
   };
@@ -231,7 +238,12 @@ const HealthMetrics = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-muted-foreground capitalize">
-                          {dataType.replace(/-/g, ' ')}
+                          {(() => {
+                            // Get custom tracker title if available
+                            const customTrackers = JSON.parse(localStorage.getItem(`custom_trackers_${user?.id}`) || '[]');
+                            const tracker = customTrackers.find((t: any) => t.data_type === dataType);
+                            return tracker ? tracker.title : dataType.replace(/-/g, ' ').replace(/_/g, ' ');
+                          })()}
                         </p>
                         <p className="text-2xl font-bold">
                           {typeof displayValue === 'number' ? displayValue.toFixed(displayValue % 1 === 0 ? 0 : 1) : displayValue}

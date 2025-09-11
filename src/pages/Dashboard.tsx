@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale, ListTodo } from 'lucide-react';
+import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale, ListTodo, Plus } from 'lucide-react';
 import HealthMetrics from '@/components/HealthMetrics';
 import CalendarEvents from '@/components/CalendarEvents';
 import { TaskManager } from '@/components/TaskManager';
@@ -14,6 +14,7 @@ import UserCreator from '@/components/UserCreator';
 import { WeightGoals } from '@/components/WeightGoals';
 import { UnitsPreference } from '@/components/UnitsPreference';
 import DashboardOverview from '@/components/DashboardOverview';
+import { CustomTrackers } from '@/components/CustomTrackers';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -70,7 +71,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto p-6">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <TrendingUp className="h-4 w-4" />
               <span>Overview</span>
@@ -78,6 +79,10 @@ const Dashboard = () => {
             <TabsTrigger value="health" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
               <span>Health Data</span>
+            </TabsTrigger>
+            <TabsTrigger value="trackers" className="flex items-center space-x-2">
+              <Plus className="h-4 w-4" />
+              <span>Trackers</span>
             </TabsTrigger>
             <TabsTrigger value="calendar" className="flex items-center space-x-2">
               <Calendar className="h-4 w-4" />
@@ -107,10 +112,18 @@ const Dashboard = () => {
 
           <TabsContent value="overview" className="space-y-6">
             <DashboardOverview />
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold mb-4">Quick Trackers</h3>
+              <CustomTrackers />
+            </div>
           </TabsContent>
 
           <TabsContent value="health">
             <HealthMetrics />
+          </TabsContent>
+
+          <TabsContent value="trackers">
+            <CustomTrackers />
           </TabsContent>
 
           <TabsContent value="calendar">
