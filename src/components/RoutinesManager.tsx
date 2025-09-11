@@ -82,46 +82,43 @@ const RoutinesManager = () => {
   const syncAmazonRoutines = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-amazon-routines');
-      
-      if (error) throw error;
-      
-      if (data?.success === false) {
-        // Handle OAuth limitation message
-        if (data.limitation) {
-          toast({
-            title: "Amazon Connection Limitation",
-            description: data.message || "Login with Amazon OAuth only provides profile access, not device control.",
-            variant: "default",
-          });
-        } else {
-          toast({
-            title: "Sync Failed",
-            description: data.message || "Failed to sync Amazon routines.",
-            variant: "destructive",
-          });
-        }
-      } else if (data?.success) {
+      console.log('Syncing Alexa reminders...');
+      const { data, error } = await supabase.functions.invoke('sync-alexa-reminders', {
+        body: { action: 'list' }
+      });
+
+      if (error) {
+        console.error('Function invocation error:', error);
         toast({
-          title: "Amazon Routines Synced",
-          description: `Successfully synced ${data.data?.reminders?.length || 0} routines from Amazon.`,
+          title: "Sync Failed",
+          description: `Failed to sync Alexa reminders: ${error.message}`,
+          variant: "destructive",
         });
-        
-        fetchRoutines();
-      } else {
-        // Handle the case where reminders are synced but no new data
-        toast({
-          title: "Sync Complete",
-          description: data?.message || "Alexa reminders synced successfully",
-          variant: "default",
-        });
+        return;
       }
-    } catch (error) {
-      console.error('Error syncing Amazon routines:', error);
+
+      if (data.error) {
+        console.error('Alexa API error:', data.error);
+        toast({
+          title: "Alexa Connection Issue",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Alexa sync result:', data);
       toast({
-        title: "Sync Information",
-        description: "Amazon Alexa routines cannot be accessed via API. Use the Alexa app to manage routines, or create local wellness reminders here.",
-        variant: "default",
+        title: "Alexa Sync Complete",
+        description: data.message || "Successfully synced with Alexa reminders",
+      });
+
+    } catch (error) {
+      console.error('Unexpected error during Alexa sync:', error);
+      toast({
+        title: "Sync Error",
+        description: "An unexpected error occurred while syncing Alexa reminders",
+        variant: "destructive",
       });
     } finally {
       setSyncing(false);
@@ -167,7 +164,7 @@ const RoutinesManager = () => {
               }
             };
             
-            const { data: alexaResult, error: alexaError } = await supabase.functions.invoke('sync-amazon-routines', {
+            const { data: alexaResult, error: alexaError } = await supabase.functions.invoke('sync-alexa-reminders', {
               body: reminderData
             });
             
@@ -383,7 +380,7 @@ const RoutinesManager = () => {
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
-            {syncing ? 'Checking...' : 'Check Amazon'}
+            {syncing ? 'Syncing...' : 'Sync Alexa'}
           </Button>
           
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

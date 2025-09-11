@@ -46,7 +46,7 @@ const ApiConfiguration = () => {
   const [amazonConfig, setAmazonConfig] = useState({
     client_id: '',
     client_secret: '',
-    api_key: '',
+    skill_id: '',
     redirect_url: '',
   });
 
@@ -92,7 +92,7 @@ const ApiConfiguration = () => {
             setAmazonConfig({
               client_id: config.client_id || '',
               client_secret: config.client_secret || '',
-              api_key: config.api_key || '',
+              skill_id: config.api_key || '',
               redirect_url: (config as any).redirect_url || '',
             });
             break;
@@ -720,7 +720,7 @@ const ApiConfiguration = () => {
                     <span>Amazon Configuration</span>
                   </CardTitle>
                   <CardDescription>
-                    Configure Amazon Alexa API credentials for routines and reminders
+                    Configure Amazon Alexa Skill credentials for reminders API access
                   </CardDescription>
                 </div>
                  {getConfigStatus('amazon') ? (
@@ -740,7 +740,7 @@ const ApiConfiguration = () => {
                   <Input
                     id="amazon-client-id"
                     type="text"
-                    placeholder="Enter Amazon Client ID"
+                    placeholder="Enter Alexa Skill Client ID"
                     value={amazonConfig.client_id}
                     onChange={(e) => setAmazonConfig({ ...amazonConfig, client_id: e.target.value })}
                   />
@@ -750,10 +750,20 @@ const ApiConfiguration = () => {
                   <Input
                     id="amazon-client-secret"
                     type="password"
-                    placeholder="Enter Amazon Client Secret"
+                    placeholder="Enter Alexa Skill Client Secret"
                     value={amazonConfig.client_secret}
                     onChange={(e) => setAmazonConfig({ ...amazonConfig, client_secret: e.target.value })}
                   />
+                 </div>
+                 <div className="space-y-2 md:col-span-2">
+                   <Label htmlFor="amazon-skill-id">Skill ID</Label>
+                   <Input
+                     id="amazon-skill-id"
+                     type="text"
+                     placeholder="Enter Alexa Skill ID (amzn1.ask.skill.xxxx)"
+                     value={amazonConfig.skill_id}
+                     onChange={(e) => setAmazonConfig({ ...amazonConfig, skill_id: e.target.value })}
+                   />
                  </div>
                  <div className="space-y-2 md:col-span-2">
                    <Label htmlFor="amazon-redirect-url">Redirect URL</Label>
@@ -765,18 +775,22 @@ const ApiConfiguration = () => {
                      onChange={(e) => setAmazonConfig({ ...amazonConfig, redirect_url: e.target.value })}
                      disabled
                    />
-                   <p className="text-sm text-muted-foreground">
-                     Use: <code className="bg-muted px-1 rounded">https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/alexa-oauth-callback</code><br/>
-                     This URL must be configured in your Amazon Developer Console.
-                   </p>
+                    <p className="text-sm text-muted-foreground">
+                      Use: <code className="bg-muted px-1 rounded">https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/alexa-oauth-callback</code><br/>
+                      This URL must be configured in your Alexa Skill's Account Linking settings.
+                    </p>
                  </div>
                </div>
                <div className="flex space-x-2">
-                 <Button
-                   onClick={() => saveConfig('alexa', amazonConfig)}
-                   disabled={saving === 'amazon'}
-                   className="bg-health-primary hover:bg-health-secondary"
-                 >
+                  <Button
+                    onClick={() => saveConfig('alexa', { 
+                      client_id: amazonConfig.client_id, 
+                      client_secret: amazonConfig.client_secret, 
+                      api_key: amazonConfig.skill_id 
+                    })}
+                    disabled={saving === 'amazon'}
+                    className="bg-health-primary hover:bg-health-secondary"
+                  >
                    {saving === 'amazon' ? (
                      <Key className="h-4 w-4 animate-spin mr-2" />
                    ) : (
@@ -785,7 +799,7 @@ const ApiConfiguration = () => {
                    {saving === 'amazon' ? 'Saving...' : 'Save Configuration'}
                  </Button>
                  
-                  {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && (
+                  {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && amazonConfig.skill_id && (
                     <Button
                       variant="secondary"
                       onClick={startAlexaOAuth}

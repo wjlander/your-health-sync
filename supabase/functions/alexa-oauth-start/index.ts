@@ -114,9 +114,9 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Build Alexa OAuth URL - Login with Amazon (basic profile only)
-    const scope = 'profile'
-    console.log('Using scope for Alexa OAuth:', scope)
+    // Build Alexa Skill OAuth URL - Account Linking with Reminders API access
+    const scope = 'alexa::alerts:reminders:skill:readwrite'
+    console.log('Using scope for Alexa Skill OAuth:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
@@ -124,7 +124,7 @@ serve(async (req) => {
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `state=${state}`
 
-    console.log('Generated Alexa auth URL with scope:', scope)
+    console.log('Generated Alexa Skill auth URL with scope:', scope)
     console.log('Full auth URL:', authUrl)
 
     return new Response(
