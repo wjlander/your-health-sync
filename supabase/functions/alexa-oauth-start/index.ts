@@ -114,9 +114,9 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Use Account Linking scope for Alexa skill
-    const scope = 'alexa::ask:skills:readwrite alexa::ask:models:readwrite'
-    console.log('Using Account Linking scope:', scope)
+    // Use scope for direct Alexa API access (Reminders)
+    const scope = 'alexa::alerts:reminders:skill:readwrite'
+    console.log('Using Alexa Reminders API scope:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
