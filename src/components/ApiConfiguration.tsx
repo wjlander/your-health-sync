@@ -780,31 +780,29 @@ const ApiConfiguration = () => {
                  </div>
                </div>
                 <div className="flex space-x-2">
-                  {/* Since credentials are now centralized in Supabase secrets, always show connect button when not connected */}
-                  {!getConfigStatus('google') && (
+                   {/* Always show connect/reconnect button to allow reauthentication for new permissions */}
+                   <Button
+                     variant="secondary"
+                     onClick={startGoogleOAuth}
+                     disabled={saving === 'google'}
+                     className="bg-blue-600 hover:bg-blue-700 text-white"
+                   >
+                     {saving === 'google' ? (
+                       <Key className="h-4 w-4 animate-spin mr-2" />
+                     ) : (
+                       <Key className="h-4 w-4 mr-2" />
+                     )}
+                     {getConfigStatus('google') ? 'Reconnect to Google' : 'Connect to Google Calendar'}
+                   </Button>
+                  
+                  {getConfigStatus('google') && (
                     <Button
-                      variant="secondary"
-                      onClick={startGoogleOAuth}
-                      disabled={saving === 'google'}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      variant="outline"
+                      onClick={() => testConnection('google')}
                     >
-                      {saving === 'google' ? (
-                        <Key className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Key className="h-4 w-4 mr-2" />
-                      )}
-                      Connect to Google Calendar
+                      Test Connection
                     </Button>
                   )}
-                 
-                 {getConfigStatus('google') && (
-                   <Button
-                     variant="outline"
-                     onClick={() => testConnection('google')}
-                   >
-                     Test Connection
-                   </Button>
-                 )}
                </div>
             </CardContent>
           </Card>
