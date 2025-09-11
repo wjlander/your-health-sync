@@ -239,7 +239,20 @@ const ApiConfiguration = () => {
 
   const getConfigStatus = (serviceName: string) => {
     const config = configs.find(c => c.service_name === serviceName);
-    return config?.is_active && config?.access_token;
+    if (!config?.is_active || !config?.access_token) {
+      return false;
+    }
+    
+    // Check if token is expired
+    if (config.expires_at) {
+      const expiryDate = new Date(config.expires_at);
+      const now = new Date();
+      if (expiryDate <= now) {
+        return false; // Token is expired, show connect button
+      }
+    }
+    
+    return true;
   };
 
   const startGoogleOAuth = async () => {
