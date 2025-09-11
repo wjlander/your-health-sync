@@ -60,22 +60,38 @@ const ApiConfiguration = () => {
     if (!user) return;
 
     setLoading(true);
+    console.log('=== FETCHCONFIGS START ===');
+    console.log('Current user:', user.id);
+    console.log('Will user ID:', 'b7318f45-ae52-49f4-9db5-1662096679dd');
+    
     try {
       // Fetch will's API configurations to display credentials
+      console.log('Fetching Will configs...');
       const { data: willConfigs, error: willError } = await supabase
         .from('api_configurations')
         .select('*')
         .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd');
 
-      if (willError) throw willError;
+      if (willError) {
+        console.error('Will configs error:', willError);
+        throw willError;
+      }
+
+      console.log('Will configs result:', willConfigs);
 
       // Fetch user's own configurations to check connection status
+      console.log('Fetching user configs...');
       const { data: userConfigs, error: userError } = await supabase
         .from('api_configurations')
         .select('*')
         .eq('user_id', user.id);
 
-      if (userError && userError.code !== 'PGRST116') throw userError; // Ignore "no rows" error
+      if (userError && userError.code !== 'PGRST116') {
+        console.error('User configs error:', userError);
+        throw userError; // Ignore "no rows" error
+      }
+
+      console.log('User configs result:', userConfigs);
 
       // Define all available services
       const defaultServices = ['fitbit', 'google', 'alexa'];
@@ -109,6 +125,7 @@ const ApiConfiguration = () => {
         return merged;
       });
 
+      console.log('Final merged configs being set:', mergedConfigs);
       setConfigs(mergedConfigs);
 
       // Populate form states with will's credentials
@@ -144,13 +161,18 @@ const ApiConfiguration = () => {
         }
       });
     } catch (error) {
+      console.error('=== FETCHCONFIGS ERROR ===');
       console.error('Error fetching configs:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      
       toast({
         title: "Error",
         description: "Failed to fetch API configurations",
         variant: "destructive",
       });
     } finally {
+      console.log('=== FETCHCONFIGS END ===');
       setLoading(false);
     }
   };
