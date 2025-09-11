@@ -644,7 +644,7 @@ const ApiConfiguration = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex space-x-2">
+               <div className="flex space-x-2">
                 <Button
                   onClick={() => saveConfig('fitbit', fitbitConfig)}
                   disabled={saving === 'fitbit'}
@@ -658,31 +658,31 @@ const ApiConfiguration = () => {
                   {saving === 'fitbit' ? 'Saving...' : 'Save Configuration'}
                 </Button>
                 
-                 {fitbitConfig.client_id && fitbitConfig.redirect_url && !getConfigStatus('fitbit') && (
-                   <Button
-                     variant="secondary"
-                     onClick={startFitbitOAuth}
-                     disabled={saving === 'fitbit'}
-                     className="bg-blue-600 hover:bg-blue-700 text-white"
-                   >
-                     {saving === 'fitbit' ? (
-                       <Key className="h-4 w-4 animate-spin mr-2" />
-                     ) : (
-                       <Key className="h-4 w-4 mr-2" />
-                     )}
-                     Connect to Fitbit
-                   </Button>
-                 )}
-                
-                {getConfigStatus('fitbit') && (
+                {!getConfigStatus('fitbit') && (
                   <Button
-                    variant="outline"
-                    onClick={() => testConnection('fitbit')}
+                    variant="secondary"
+                    onClick={startFitbitOAuth}
+                    disabled={saving === 'fitbit'}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    Test Connection
+                    {saving === 'fitbit' ? (
+                      <Key className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Key className="h-4 w-4 mr-2" />
+                    )}
+                    Connect to Fitbit
                   </Button>
                 )}
-              </div>
+               
+               {getConfigStatus('fitbit') && (
+                 <Button
+                   variant="outline"
+                   onClick={() => testConnection('fitbit')}
+                 >
+                   Test Connection
+                 </Button>
+               )}
+             </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -771,8 +771,8 @@ const ApiConfiguration = () => {
                  </div>
                </div>
                 <div className="flex space-x-2">
-                  {/* Remove Save Config button since credentials are read-only */}
-                  {googleConfig.client_id && googleConfig.client_secret && !getConfigStatus('google') && (
+                  {/* Since credentials are now centralized in Supabase secrets, always show connect button when not connected */}
+                  {!getConfigStatus('google') && (
                     <Button
                       variant="secondary"
                       onClick={startGoogleOAuth}
@@ -885,8 +885,8 @@ const ApiConfiguration = () => {
                  </div>
                </div>
                 <div className="flex space-x-2">
-                  {/* Remove Save Config button since credentials are read-only */}
-                    {amazonConfig.client_id && amazonConfig.client_secret && amazonConfig.skill_id && !getConfigStatus('alexa') && (
+                  {/* Since credentials are now centralized in Supabase secrets, always show connect button when not connected */}
+                    {!getConfigStatus('alexa') && (
                      <Button
                        variant="secondary"
                        onClick={startAlexaOAuth}
@@ -901,16 +901,16 @@ const ApiConfiguration = () => {
                        Connect to Alexa
                      </Button>
                    )}
-                 
-                 {getConfigStatus('alexa') && (
-                   <Button
-                     variant="outline"
-                     onClick={() => testConnection('alexa')}
-                   >
-                     Test Connection
-                   </Button>
-                 )}
-               </div>
+                  
+                  {getConfigStatus('alexa') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => testConnection('alexa')}
+                    >
+                      Test Connection
+                    </Button>
+                  )}
+                </div>
             </CardContent>
           </Card>
         </TabsContent>
