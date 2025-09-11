@@ -77,19 +77,31 @@ const ApiConfiguration = () => {
 
       if (userError && userError.code !== 'PGRST116') throw userError; // Ignore "no rows" error
 
+      // Define all available services
+      const defaultServices = ['fitbit', 'google', 'alexa'];
+      
       // Merge configs: use will's credentials but show user's connection status
-      const mergedConfigs = willConfigs?.map(willConfig => {
-        const userConfig = userConfigs?.find(uc => uc.service_name === willConfig.service_name);
+      const mergedConfigs = defaultServices.map(serviceName => {
+        const willConfig = willConfigs?.find(wc => wc.service_name === serviceName);
+        const userConfig = userConfigs?.find(uc => uc.service_name === serviceName);
+        
         return {
-          ...willConfig,
-          id: userConfig?.id || willConfig.id,
+          id: userConfig?.id || willConfig?.id || `temp-${serviceName}`,
+          user_id: user.id,
+          service_name: serviceName,
+          client_id: willConfig?.client_id || '',
+          client_secret: willConfig?.client_secret || '',
+          api_key: willConfig?.api_key || '',
+          redirect_url: willConfig?.redirect_url || '',
           access_token: userConfig?.access_token || null,
           refresh_token: userConfig?.refresh_token || null,
           expires_at: userConfig?.expires_at || null,
           is_connected: !!userConfig?.access_token,
-          user_id: user.id // Keep current user's ID for operations
+          is_active: userConfig?.is_active ?? willConfig?.is_active ?? true,
+          created_at: userConfig?.created_at || willConfig?.created_at || new Date().toISOString(),
+          updated_at: userConfig?.updated_at || willConfig?.updated_at || new Date().toISOString()
         };
-      }) || [];
+      });
 
       setConfigs(mergedConfigs);
 
