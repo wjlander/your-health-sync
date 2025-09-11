@@ -118,7 +118,7 @@ serve(async (req) => {
         client_secret: willConfig.client_secret,
         code: code,
         grant_type: 'authorization_code',
-        redirect_uri: willConfig.redirect_url
+        redirect_uri: willConfig.redirect_url || `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-oauth-callback`
       })
     })
 

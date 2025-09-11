@@ -120,7 +120,7 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: willConfig.redirect_url
+        redirect_uri: willConfig.redirect_url || `${Deno.env.get('SUPABASE_URL')}/functions/v1/fitbit-oauth-callback`
       })
     })
 
