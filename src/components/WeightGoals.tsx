@@ -582,35 +582,55 @@ export function WeightGoals() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex justify-between">
-                <span>Required Deficit:</span>
-                <span className="font-semibold">{activeGoal.daily_calorie_deficit} cal</span>
+              {/* Weight Goal Deficit Target */}
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <h4 className="font-semibold text-sm mb-2">Weight Goal Target</h4>
+                <div className="flex justify-between">
+                  <span>Daily Calorie Deficit:</span>
+                  <span className="font-semibold">{activeGoal.daily_calorie_deficit} cal</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Current Deficit:</span>
-                <span className={cn("font-semibold", currentDeficit >= activeGoal.daily_calorie_deficit ? "text-green-600" : "text-orange-600")}>
-                  {currentDeficit} cal
-                </span>
-              </div>
+
+              {/* Fitbit Data */}
+              {caloriesData ? (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Today's Data (Fitbit)</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Calories Consumed:</span>
+                      <span className="font-semibold">{caloriesData.consumed} cal</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Calories Burned:</span>
+                      <span className="font-semibold">{caloriesData.burned} cal</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span>Actual Deficit:</span>
+                      <span className={cn("font-semibold", currentDeficit >= activeGoal.daily_calorie_deficit ? "text-green-600" : "text-orange-600")}>
+                        {currentDeficit} cal
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
+                  No Fitbit calorie data for today
+                </div>
+              )}
+
+              {/* Progress towards goal */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Deficit Progress</span>
+                  <span>Goal Progress</span>
                   <span>{Math.min(100, deficitProgress).toFixed(1)}%</span>
                 </div>
                 <Progress value={Math.min(100, deficitProgress)} />
+                <p className="text-xs text-muted-foreground text-center">
+                  {currentDeficit >= activeGoal.daily_calorie_deficit 
+                    ? "Great! You're meeting your deficit goal today." 
+                    : `Need ${activeGoal.daily_calorie_deficit - currentDeficit} more calorie deficit to reach your goal.`}
+                </p>
               </div>
-              {caloriesData && (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Calories Consumed:</span>
-                    <span>{caloriesData.consumed}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Calories Burned:</span>
-                    <span>{caloriesData.burned}</span>
-                  </div>
-                </div>
-              )}
               <Dialog open={showEndDay} onOpenChange={setShowEndDay}>
                 <DialogTrigger asChild>
                   <Button className="w-full">
