@@ -12,6 +12,7 @@ import ApiConfiguration from '@/components/ApiConfiguration';
 import UserCreator from '@/components/UserCreator';
 import { WeightGoals } from '@/components/WeightGoals';
 import { UnitsPreference } from '@/components/UnitsPreference';
+import DashboardOverview from '@/components/DashboardOverview';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -100,45 +101,7 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Today's Steps</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-health-primary">8,547</div>
-                  <p className="text-xs text-muted-foreground">+12% from yesterday</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Calories Burned</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-health-accent">2,341</div>
-                  <p className="text-xs text-muted-foreground">Goal: 2,500</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Sleep Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-health-success">85</div>
-                  <p className="text-xs text-muted-foreground">7h 23m last night</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Heart Rate</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-health-error">72</div>
-                  <p className="text-xs text-muted-foreground">Resting BPM</p>
-                </CardContent>
-              </Card>
-            </div>
-            <HealthMetrics />
+            <DashboardOverview />
           </TabsContent>
 
           <TabsContent value="health">
