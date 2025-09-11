@@ -63,19 +63,17 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Get Google configuration (use will@w-j-lander.uk's settings for all users)
-    console.log('Fetching Google configuration...')
-    const { data: config, error: configError } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
-      .eq('service_name', 'google')
-      .maybeSingle()
+    // Get Google configuration from environment secrets
+    console.log('Using centralized Google configuration from secrets...')
+    const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
 
-    if (configError) {
-      console.log('Database error:', configError)
+    if (!clientId || !clientSecret) {
+      console.log('Missing Google OAuth configuration in secrets')
       return new Response(
-        JSON.stringify({ error: `Database error: ${configError.message}` }),
+        JSON.stringify({ 
+          error: 'Google OAuth configuration not found in system secrets.' 
+        }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -83,30 +81,8 @@ serve(async (req) => {
       )
     }
 
-    if (!config || !config.client_id || !config.client_secret) {
-      console.log('No complete Google configuration found')
-      return new Response(
-        JSON.stringify({ 
-          error: 'No Google configuration found. Please save your Google Client ID and Client Secret first.' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Set redirect URL if not set
-    let redirectUrl = config.redirect_url
-    if (!redirectUrl) {
-      redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-oauth-callback`
-      
-      // Update the configuration with the redirect URL
-      await supabase
-        .from('api_configurations')
-        .update({ redirect_url: redirectUrl })
-        .eq('id', config.id)
-    }
+    // Set redirect URL
+    const redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-oauth-callback`
 
     // Generate OAuth state with user info
     const state = btoa(JSON.stringify({
@@ -117,7 +93,7 @@ serve(async (req) => {
     // Build Google OAuth URL
     const scope = 'openid email profile https://www.googleapis.com/auth/calendar'
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${config.client_id}&` +
+      `client_id=${clientId}&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `response_type=code&` +
       `scope=${encodeURIComponent(scope)}&` +

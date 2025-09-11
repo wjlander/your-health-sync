@@ -63,28 +63,17 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Get Fitbit configuration (use will@w-j-lander.uk's settings for all users)
-    console.log('Fetching Fitbit configuration...')
-    console.log('Using will@w-j-lander.uk settings for all users')
-    
-    const { data: config, error: configError } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
-      .eq('service_name', 'fitbit')
-      .maybeSingle()
+    // Get Fitbit configuration from environment secrets
+    console.log('Using centralized Fitbit configuration from secrets...')
+    const clientId = Deno.env.get('FITBIT_CLIENT_ID')
+    const clientSecret = Deno.env.get('FITBIT_CLIENT_SECRET')
 
-    console.log('Raw database response:')
-    console.log('- config:', JSON.stringify(config, null, 2))
-    console.log('- configError:', JSON.stringify(configError, null, 2))
-    console.log('Config exists:', !!config)
-    console.log('Config client_id:', config?.client_id)
-    console.log('Config redirect_url:', config?.redirect_url)
-    
-    if (configError) {
-      console.log('Database error:', configError)
+    if (!clientId || !clientSecret) {
+      console.log('Missing Fitbit OAuth configuration in secrets')
       return new Response(
-        JSON.stringify({ error: `Database error: ${configError.message}` }),
+        JSON.stringify({ 
+          error: 'Fitbit OAuth configuration not found in system secrets.' 
+        }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -92,47 +81,10 @@ serve(async (req) => {
       )
     }
 
-    if (!config) {
-      console.log('No Fitbit configuration found in database')
-      return new Response(
-        JSON.stringify({ 
-          error: 'No Fitbit configuration found. Please save your Fitbit Client ID and Redirect URL first.' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    if (!config.client_id) {
-      console.log('Missing client_id in config')
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing Fitbit Client ID. Please configure it in the API settings.' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Set redirect URL if not set or fix truncated URL
-    let redirectUrl = config.redirect_url
-    if (!redirectUrl || redirectUrl.endsWith('fitbit-oauth-callbac')) {
-      redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/fitbit-oauth-callback`
-      
-      // Update the configuration with the correct redirect URL
-      await supabase
-        .from('api_configurations')
-        .update({ redirect_url: redirectUrl })
-        .eq('id', config.id)
-      
-      console.log('Updated redirect_url to:', redirectUrl)
-    }
-
-    console.log('Using client_id:', config.client_id)
+    // Set redirect URL
+    const redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/fitbit-oauth-callback`
+    
+    console.log('Using client_id:', clientId)
     console.log('Using redirect_url:', redirectUrl)
 
     // Generate state parameter for security
@@ -145,7 +97,7 @@ serve(async (req) => {
     
     // Create the authorization URL with proper parameters
     const params = new URLSearchParams({
-      client_id: config.client_id,
+      client_id: clientId,
       response_type: 'code',
       redirect_uri: redirectUrl,
       scope: 'activity heartrate location nutrition profile settings sleep social weight',

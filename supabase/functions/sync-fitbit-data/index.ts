@@ -181,11 +181,11 @@ async function syncSingleUser(authHeader: string) {
 async function refreshFitbitToken(supabase: any, userId: string) {
   console.log('Refreshing Fitbit token for user:', userId)
   
-  // Get current config with refresh token
-  // Use will@w-j-lander.uk's Fitbit config for all users
+  // Get refresh token from centralized config but use secrets for client credentials
+  // Use will@w-j-lander.uk's Fitbit config for refresh token
   const { data: config, error: configError } = await supabase
     .from('api_configurations')
-    .select('*')
+    .select('refresh_token')
     .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
     .eq('service_name', 'fitbit')
     .single()
@@ -194,13 +194,22 @@ async function refreshFitbitToken(supabase: any, userId: string) {
     console.log('No refresh token found:', configError)
     throw new Error('No refresh token available. Please re-authorize Fitbit.')
   }
+
+  // Get client credentials from environment secrets
+  const clientId = Deno.env.get('FITBIT_CLIENT_ID')
+  const clientSecret = Deno.env.get('FITBIT_CLIENT_SECRET')
+  
+  if (!clientId || !clientSecret) {
+    console.log('Missing Fitbit OAuth configuration in secrets')
+    throw new Error('Fitbit OAuth configuration not found in system secrets.')
+  }
   
   // Refresh the token
   const refreshResponse = await fetch('https://api.fitbit.com/oauth2/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${btoa(`${config.client_id}:${config.client_secret}`)}`
+      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
@@ -226,7 +235,7 @@ async function refreshFitbitToken(supabase: any, userId: string) {
       expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
       updated_at: new Date().toISOString()
     })
-    .eq('id', config.id)
+    .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
     
   if (updateError) {
     console.log('Failed to update tokens:', updateError)

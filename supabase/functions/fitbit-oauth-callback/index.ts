@@ -59,16 +59,13 @@ serve(async (req) => {
       )
     }
 
-    // Get API credentials from Will's configuration (shared credentials)
-    const { data: willConfig, error: willConfigError } = await supabaseAdmin
-      .from('api_configurations')
-      .select('client_id, client_secret, redirect_url')
-      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
-      .eq('service_name', 'fitbit')
-      .single()
+    // Get API credentials from environment secrets
+    const clientId = Deno.env.get('FITBIT_CLIENT_ID')
+    const clientSecret = Deno.env.get('FITBIT_CLIENT_SECRET')
+    const redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/fitbit-oauth-callback`
 
-    if (willConfigError || !willConfig) {
-      console.log('Will\'s config not found:', willConfigError)
+    if (!clientId || !clientSecret) {
+      console.log('Missing Fitbit OAuth configuration in secrets')
       return new Response(
         '<html><body><h1>Configuration Error</h1><p>System configuration not found</p><script>window.close();</script></body></html>',
         { headers: { 'Content-Type': 'text/html' } }
@@ -91,9 +88,9 @@ serve(async (req) => {
         .insert({
           user_id: userId,
           service_name: 'fitbit',
-          client_id: willConfig.client_id,
-          client_secret: willConfig.client_secret,
-          redirect_url: willConfig.redirect_url,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_url: redirectUrl,
           is_active: true
         })
         .select()
@@ -115,12 +112,12 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${btoa(`${willConfig.client_id}:${willConfig.client_secret}`)}`
+        'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: willConfig.redirect_url || `${Deno.env.get('SUPABASE_URL')}/functions/v1/fitbit-oauth-callback`
+        redirect_uri: redirectUrl
       })
     })
 
