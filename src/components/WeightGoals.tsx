@@ -9,12 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Target, TrendingDown, Scale, CalendarIcon, Activity, CheckCircle } from 'lucide-react';
+import { Target, TrendingDown, Scale, CalendarIcon, Activity, CheckCircle, Edit } from 'lucide-react';
 import { UnitsPreference, UnitsType, convertWeight, getWeightUnit } from './UnitsPreference';
 
 interface WeightGoal {
@@ -51,8 +53,10 @@ export function WeightGoals() {
   const [todayProgress, setTodayProgress] = useState<WeightProgress | null>(null);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [caloriesData, setCaloriesData] = useState<{ consumed: number; burned: number } | null>(null);
+  const [progressData, setProgressData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewGoal, setShowNewGoal] = useState(false);
+  const [showEditGoal, setShowEditGoal] = useState(false);
   const [showEndDay, setShowEndDay] = useState(false);
   const [userUnits, setUserUnits] = useState<UnitsType>('imperial');
 
@@ -61,6 +65,12 @@ export function WeightGoals() {
   const [weeklyLoss, setWeeklyLoss] = useState('1.0');
   const [dailyDeficit, setDailyDeficit] = useState('500');
   const [targetDate, setTargetDate] = useState<Date>();
+
+  // Edit goal form state
+  const [editTargetWeight, setEditTargetWeight] = useState('');
+  const [editWeeklyLoss, setEditWeeklyLoss] = useState('1.0');
+  const [editDailyDeficit, setEditDailyDeficit] = useState('500');
+  const [editTargetDate, setEditTargetDate] = useState<Date>();
 
   // End day form state
   const [todayWeight, setTodayWeight] = useState('');
@@ -138,6 +148,27 @@ export function WeightGoals() {
         const consumed = calorieData.find(d => d.data_type === 'calories-in')?.value || 0;
         const burned = calorieData.find(d => d.data_type === 'calories-out')?.value || 0;
         setCaloriesData({ consumed, burned });
+      }
+
+      // Fetch progress data for chart if there's an active goal
+      if (goals && goals.length > 0) {
+        const { data: progressChartData } = await supabase
+          .from('weight_progress')
+          .select('date, current_weight')
+          .eq('user_id', user.id)
+          .eq('goal_id', goals[0].id)
+          .order('date', { ascending: true });
+
+        if (progressChartData) {
+          const chartData = progressChartData
+            .filter(p => p.current_weight)
+            .map(p => ({
+              date: format(new Date(p.date), 'MMM dd'),
+              weight: userUnits === 'imperial' ? p.current_weight * 2.20462 : p.current_weight,
+              target: userUnits === 'imperial' ? goals[0].target_weight * 2.20462 : goals[0].target_weight
+            }));
+          setProgressData(chartData);
+        }
       }
 
     } catch (error) {
@@ -233,6 +264,58 @@ export function WeightGoals() {
         description: 'Failed to create weight goal',
         variant: 'destructive'
       });
+    }
+  };
+
+  const handleEditGoal = async () => {
+    if (!user || !activeGoal || !editTargetWeight) return;
+
+    // Convert input weights to kg for storage (DB stores in kg)
+    const targetWeightInKg = userUnits === 'imperial' ? parseFloat(editTargetWeight) / 2.20462 : parseFloat(editTargetWeight);
+    const weeklyLossInKg = userUnits === 'imperial' ? parseFloat(editWeeklyLoss) / 2.20462 : parseFloat(editWeeklyLoss);
+    const dailyDeficitNum = parseInt(editDailyDeficit);
+
+    try {
+      const { error } = await supabase
+        .from('weight_goals')
+        .update({
+          target_weight: targetWeightInKg,
+          weekly_loss_target: weeklyLossInKg,
+          daily_calorie_deficit: dailyDeficitNum,
+          target_date: editTargetDate ? editTargetDate.toISOString().split('T')[0] : activeGoal.target_date
+        })
+        .eq('id', activeGoal.id);
+
+      if (error) throw error;
+
+      setShowEditGoal(false);
+      toast({
+        title: 'Goal Updated',
+        description: 'Your weight loss goal has been updated successfully!'
+      });
+      
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error('Error updating goal:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update weight goal',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const openEditDialog = () => {
+    if (activeGoal) {
+      // Convert from kg to display units
+      const displayTargetWeight = userUnits === 'imperial' ? activeGoal.target_weight * 2.20462 : activeGoal.target_weight;
+      const displayWeeklyLoss = userUnits === 'imperial' ? activeGoal.weekly_loss_target * 2.20462 : activeGoal.weekly_loss_target;
+      
+      setEditTargetWeight(displayTargetWeight.toFixed(1));
+      setEditWeeklyLoss(displayWeeklyLoss.toFixed(1));
+      setEditDailyDeficit(activeGoal.daily_calorie_deficit.toString());
+      setEditTargetDate(new Date(activeGoal.target_date));
+      setShowEditGoal(true);
     }
   };
 
@@ -423,9 +506,14 @@ export function WeightGoals() {
           {/* Goal Overview */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Current Goal
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Current Goal
+                </div>
+                <Button variant="ghost" size="sm" onClick={openEditDialog}>
+                  <Edit className="h-4 w-4" />
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -454,6 +542,36 @@ export function WeightGoals() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Progress Chart */}
+          {progressData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5" />
+                  Weight Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    weight: { label: "Weight", color: "hsl(var(--primary))" },
+                    target: { label: "Target", color: "hsl(var(--muted-foreground))" }
+                  }}
+                  className="h-[200px]"
+                >
+                  <LineChart data={progressData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="weight" stroke="var(--color-weight)" strokeWidth={2} />
+                    <ReferenceLine y={displayTargetWeight} stroke="var(--color-target)" strokeDasharray="5 5" />
+                  </LineChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Daily Tracking */}
           <Card>
