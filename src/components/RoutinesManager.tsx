@@ -94,10 +94,10 @@ const RoutinesManager = () => {
         
         fetchRoutines();
       } else {
-        // Handle the known limitation gracefully
+        // Handle the case where reminders are synced but no new data
         toast({
-          title: "Sync Information",
-          description: data?.message || "Amazon Alexa routines must be managed through the Alexa app. Create local reminders here instead.",
+          title: "Sync Complete",
+          description: data?.message || "Alexa reminders synced successfully",
           variant: "default",
         });
       }
@@ -117,6 +117,68 @@ const RoutinesManager = () => {
     if (!user || !newRoutine.title) return;
 
     try {
+      let amazonReminderId = null;
+      
+      // If this is an Amazon routine, try to create it via Alexa API
+      if (newRoutine.routine_type === 'amazon') {
+        try {
+          const reminderTimes = newRoutine.reminder_times.length > 0 
+            ? newRoutine.reminder_times 
+            : (newRoutine.schedule_time ? [newRoutine.schedule_time] : ['09:00']);
+          
+          // Create reminders for each scheduled time
+          for (const time of reminderTimes) {
+            const [hours, minutes] = time.split(':');
+            const scheduledDate = new Date(newRoutine.start_date);
+            scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            
+            // If the time has already passed today, schedule for tomorrow
+            if (scheduledDate < new Date()) {
+              scheduledDate.setDate(scheduledDate.getDate() + 1);
+            }
+            
+            const reminderData = {
+              action: 'create',
+              reminder: {
+                title: newRoutine.title,
+                text: `${newRoutine.title}${newRoutine.description ? ': ' + newRoutine.description : ''}`,
+                scheduledTime: scheduledDate.toISOString(),
+                ...(newRoutine.schedule_days.length > 0 && {
+                  recurrence: {
+                    freq: 'DAILY',
+                    byDay: newRoutine.schedule_days.map(day => ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'][day])
+                  }
+                })
+              }
+            };
+            
+            const { data: alexaResult, error: alexaError } = await supabase.functions.invoke('sync-amazon-routines', {
+              body: reminderData
+            });
+            
+            if (alexaError) throw alexaError;
+            
+            if (alexaResult?.success) {
+              amazonReminderId = alexaResult.data?.reminderId;
+              toast({
+                title: "Alexa Reminder Created",
+                description: `Successfully created reminder "${newRoutine.title}" on your Alexa device`,
+              });
+            } else {
+              throw new Error(alexaResult?.error || 'Failed to create Alexa reminder');
+            }
+          }
+        } catch (alexaError) {
+          console.error('Error creating Alexa reminder:', alexaError);
+          toast({
+            title: "Alexa Reminder Failed", 
+            description: `Could not create Alexa reminder: ${alexaError.message}. Creating local reminder instead.`,
+            variant: "destructive",
+          });
+        }
+      }
+
+      // Always create the local routine record
       const { error } = await supabase
         .from('routines')
         .insert({
@@ -130,13 +192,16 @@ const RoutinesManager = () => {
           duration_days: newRoutine.duration_days,
           start_date: newRoutine.start_date,
           is_active: true,
+          amazon_routine_id: amazonReminderId,
         });
 
       if (error) throw error;
 
       toast({
         title: "Routine Created",
-        description: "Your routine has been created successfully",
+        description: amazonReminderId 
+          ? "Your Alexa reminder and local routine have been created successfully"
+          : "Your local routine has been created successfully",
       });
 
       setNewRoutine({
