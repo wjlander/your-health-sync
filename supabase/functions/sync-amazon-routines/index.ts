@@ -120,144 +120,16 @@ serve(async (req) => {
     
     // Handle different actions
     if (action === 'create' && body?.reminder) {
-      // Create a new reminder using Alexa Reminders API
+      // Create a new reminder - but Login with Amazon doesn't have access to Alexa device APIs
       const reminder = body.reminder
-      console.log('Creating Alexa reminder:', reminder)
-      
-      const reminderPayload = {
-        requestTime: new Date().toISOString(),
-        trigger: {
-          type: reminder.recurrence ? 'SCHEDULED_RECURRING' : 'SCHEDULED_ABSOLUTE',
-          scheduledTime: reminder.scheduledTime || new Date(Date.now() + 60000).toISOString(),
-          ...(reminder.recurrence && { recurrence: reminder.recurrence })
-        },
-        alertInfo: {
-          spokenInfo: {
-            content: [{
-              locale: 'en-US',
-              text: reminder.text || reminder.title
-            }]
-          }
-        },
-        pushNotification: {
-          status: 'ENABLED'
-        }
-      }
-      
-      console.log('Reminder payload:', JSON.stringify(reminderPayload, null, 2))
-      
-      const alexaResponse = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(reminderPayload)
-      })
-      
-      console.log('Alexa API response status:', alexaResponse.status)
-      
-      if (alexaResponse.status === 401) {
-        // Token might be expired, try to refresh if we have a refresh token
-        if (config.refresh_token) {
-          console.log('Access token expired, attempting to refresh...')
-          
-          const refreshResponse = await fetch('https://api.amazon.com/auth/o2/token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              grant_type: 'refresh_token',
-              refresh_token: config.refresh_token,
-              client_id: config.client_id || '',
-              client_secret: config.client_secret || ''
-            })
-          })
-          
-          if (refreshResponse.ok) {
-            const tokenData = await refreshResponse.json()
-            console.log('Token refreshed successfully')
-            
-            // Update the stored tokens
-            await supabase
-              .from('api_configurations')
-              .update({
-                access_token: tokenData.access_token,
-                refresh_token: tokenData.refresh_token || config.refresh_token,
-                expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
-              })
-              .eq('id', config.id)
-            
-            // Retry the reminder creation with new token
-            const retryResponse = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${tokenData.access_token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(reminderPayload)
-            })
-            
-            if (retryResponse.ok) {
-              const reminderResult = await retryResponse.json()
-              console.log('Reminder created successfully after token refresh:', reminderResult)
-              
-              return new Response(
-                JSON.stringify({
-                  success: true,
-                  message: 'Alexa reminder created successfully',
-                  data: { reminderId: reminderResult.alertToken }
-                }),
-                { 
-                  status: 200,
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-                }
-              )
-            } else {
-              const retryError = await retryResponse.text()
-              console.log('Retry failed:', retryError)
-            }
-          } else {
-            console.log('Token refresh failed')
-          }
-        }
-        
-        return new Response(
-          JSON.stringify({ 
-            error: 'Alexa authentication expired. You need to reconnect your Amazon account with the correct permissions for Alexa reminders.',
-            requiresReauth: true
-          }),
-          { 
-            status: 401, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-      
-      if (!alexaResponse.ok) {
-        const errorText = await alexaResponse.text()
-        console.log('Alexa API error:', errorText)
-        
-        return new Response(
-          JSON.stringify({ 
-            error: `Failed to create Alexa reminder: ${errorText}` 
-          }),
-          { 
-            status: alexaResponse.status, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-      
-      const reminderResult = await alexaResponse.json()
-      console.log('Reminder created successfully:', reminderResult)
+      console.log('Attempting to create Alexa reminder but Login with Amazon lacks device permissions:', reminder)
       
       return new Response(
         JSON.stringify({
-          success: true,
-          message: 'Alexa reminder created successfully',
-          data: { reminderId: reminderResult.alertToken }
+          success: false,
+          message: 'Cannot create Alexa reminders with Login with Amazon OAuth. This requires Alexa Skills Kit or Alexa Voice Service integration.',
+          limitation: 'Login with Amazon OAuth only provides profile access, not device control.',
+          suggestion: 'Create local reminders instead or implement an Alexa Skill.'
         }),
         { 
           status: 200,
@@ -265,98 +137,15 @@ serve(async (req) => {
         }
       )
     } else {
-      // List existing reminders
-      console.log('Fetching existing Alexa reminders...')
-      
-      const alexaResponse = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${config.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      if (alexaResponse.status === 401 && config.refresh_token) {
-        // Try to refresh token and retry
-        console.log('Access token expired, attempting to refresh...')
-        
-        const refreshResponse = await fetch('https://api.amazon.com/auth/o2/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            grant_type: 'refresh_token',
-            refresh_token: config.refresh_token,
-            client_id: config.client_id || '',
-            client_secret: config.client_secret || ''
-          })
-        })
-        
-        if (refreshResponse.ok) {
-          const tokenData = await refreshResponse.json()
-          
-          // Update tokens
-          await supabase
-            .from('api_configurations')
-            .update({
-              access_token: tokenData.access_token,
-              refresh_token: tokenData.refresh_token || config.refresh_token,
-              token_expiry: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
-            })
-            .eq('id', config.id)
-          
-          // Retry with new token
-          const retryResponse = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${tokenData.access_token}`,
-              'Content-Type': 'application/json'
-            }
-          })
-          
-          if (retryResponse.ok) {
-            const reminders = await retryResponse.json()
-            return new Response(
-              JSON.stringify({
-                success: true,
-                message: 'Alexa reminders synced successfully',
-                data: { reminders: reminders.alerts || [] }
-              }),
-              { 
-                status: 200,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            )
-          }
-        }
-      }
-      
-      if (!alexaResponse.ok) {
-        const errorText = await alexaResponse.text()
-        console.log('Alexa API error:', errorText)
-        
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Failed to connect to Alexa. Please check your Amazon connection.',
-            error: errorText
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-      
-      const reminders = await alexaResponse.json()
-      console.log('Reminders fetched successfully:', reminders)
+      // List existing reminders - but Login with Amazon doesn't have access to Alexa device APIs
+      console.log('Login with Amazon OAuth does not provide access to Alexa device APIs')
       
       return new Response(
         JSON.stringify({
-          success: true,
-          message: 'Alexa reminders synced successfully',
-          data: { reminders: reminders.alerts || [] }
+          success: false,
+          message: 'Amazon profile connected successfully, but Alexa device features (reminders/routines) require Alexa Skills Kit or Alexa Voice Service integration.',
+          limitation: 'Login with Amazon OAuth only provides profile access, not device control.',
+          data: { reminders: [] }
         }),
         { 
           status: 200,

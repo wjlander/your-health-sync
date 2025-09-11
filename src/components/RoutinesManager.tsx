@@ -86,10 +86,25 @@ const RoutinesManager = () => {
       
       if (error) throw error;
       
-      if (data?.success) {
+      if (data?.success === false) {
+        // Handle OAuth limitation message
+        if (data.limitation) {
+          toast({
+            title: "Amazon Connection Limitation",
+            description: data.message || "Login with Amazon OAuth only provides profile access, not device control.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Sync Failed",
+            description: data.message || "Failed to sync Amazon routines.",
+            variant: "destructive",
+          });
+        }
+      } else if (data?.success) {
         toast({
-          title: "Sync Complete",
-          description: "Amazon routines have been synced successfully",
+          title: "Amazon Routines Synced",
+          description: `Successfully synced ${data.data?.reminders?.length || 0} routines from Amazon.`,
         });
         
         fetchRoutines();
