@@ -80,12 +80,15 @@ const ApiConfiguration = () => {
       // Define all available services
       const defaultServices = ['fitbit', 'google', 'alexa'];
       
+      console.log('Will configs fetched:', willConfigs);
+      console.log('User configs fetched:', userConfigs);
+      
       // Merge configs: use will's credentials but show user's connection status
       const mergedConfigs = defaultServices.map(serviceName => {
         const willConfig = willConfigs?.find(wc => wc.service_name === serviceName);
         const userConfig = userConfigs?.find(uc => uc.service_name === serviceName);
         
-        return {
+        const merged = {
           id: userConfig?.id || willConfig?.id || `temp-${serviceName}`,
           user_id: user.id,
           service_name: serviceName,
@@ -101,19 +104,26 @@ const ApiConfiguration = () => {
           created_at: userConfig?.created_at || willConfig?.created_at || new Date().toISOString(),
           updated_at: userConfig?.updated_at || willConfig?.updated_at || new Date().toISOString()
         };
+        
+        console.log(`Merged config for ${serviceName}:`, merged);
+        return merged;
       });
 
       setConfigs(mergedConfigs);
 
       // Populate form states with will's credentials
+      console.log('Final merged configs:', mergedConfigs);
+      
       mergedConfigs?.forEach((config) => {
         switch (config.service_name) {
           case 'fitbit':
-            setFitbitConfig({
+            const fitbitConf = {
               client_id: config.client_id || '',
               client_secret: config.client_secret || '',
               redirect_url: (config as any).redirect_url || '',
-            });
+            };
+            console.log('Setting fitbit config:', fitbitConf);
+            setFitbitConfig(fitbitConf);
             break;
           case 'google':
             setGoogleConfig({
