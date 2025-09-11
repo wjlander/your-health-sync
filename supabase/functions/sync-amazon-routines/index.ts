@@ -185,7 +185,7 @@ serve(async (req) => {
               .update({
                 access_token: tokenData.access_token,
                 refresh_token: tokenData.refresh_token || config.refresh_token,
-                token_expiry: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
+                expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
               })
               .eq('id', config.id)
             
@@ -214,13 +214,19 @@ serve(async (req) => {
                   headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
                 }
               )
+            } else {
+              const retryError = await retryResponse.text()
+              console.log('Retry failed:', retryError)
             }
+          } else {
+            console.log('Token refresh failed')
           }
         }
         
         return new Response(
           JSON.stringify({ 
-            error: 'Authentication failed. Please reconnect your Amazon account.' 
+            error: 'Alexa authentication expired. You need to reconnect your Amazon account with the correct permissions for Alexa reminders.',
+            requiresReauth: true
           }),
           { 
             status: 401, 

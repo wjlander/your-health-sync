@@ -114,8 +114,8 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Build Alexa OAuth URL - Login with Amazon
-    const scope = 'profile'
+    // Build Alexa OAuth URL - Login with Amazon with reminders scope
+    const scope = 'alexa::alerts:reminders:skill:readwrite profile'
     console.log('Using scope for Alexa OAuth:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +

@@ -168,14 +168,24 @@ const RoutinesManager = () => {
               throw new Error(alexaResult?.error || 'Failed to create Alexa reminder');
             }
           }
-        } catch (alexaError) {
-          console.error('Error creating Alexa reminder:', alexaError);
+      } catch (alexaError) {
+        console.error('Error creating Alexa reminder:', alexaError);
+        
+        // Check if this is a permissions/auth error that requires reconnection
+        if (alexaError.message?.includes('requiresReauth') || alexaError.message?.includes('UNAUTHORIZED')) {
+          toast({
+            title: "Alexa Reconnection Required", 
+            description: "Your Alexa connection expired or lacks reminders permission. Please reconnect your Amazon account.",
+            variant: "destructive",
+          });
+        } else {
           toast({
             title: "Alexa Reminder Failed", 
             description: `Could not create Alexa reminder: ${alexaError.message}. Creating local reminder instead.`,
             variant: "destructive",
           });
         }
+      }
       }
 
       // Always create the local routine record
