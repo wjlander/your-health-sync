@@ -123,9 +123,101 @@ serve(async (req) => {
       console.log('Google Calendar API error:', response.status, errorText)
       
       if (response.status === 401) {
+        console.log('Access token expired, attempting refresh...')
+        try {
+          const newAccessToken = await refreshGoogleToken(supabase, user.id)
+          console.log('Token refreshed successfully, retrying calendar sync...')
+          
+          // Retry the calendar events request with new token
+          const retryResponse = await fetch(calendarUrl, {
+            headers: {
+              'Authorization': `Bearer ${newAccessToken}`,
+              'Accept': 'application/json'
+            }
+          })
+          
+          if (retryResponse.ok) {
+            const calendarData = await retryResponse.json()
+            console.log('Fetched', calendarData.items?.length || 0, 'events from Google Calendar')
+
+            // Continue with processing events...
+            let newEventsCount = 0
+            let updatedEventsCount = 0
+
+            if (calendarData.items && calendarData.items.length > 0) {
+              for (const event of calendarData.items) {
+                if (!event.start || !event.end) continue // Skip events without times
+
+                const startTime = event.start.dateTime || event.start.date
+                const endTime = event.end.dateTime || event.end.date
+                
+                if (!startTime || !endTime) continue
+
+                // Check if event already exists
+                const { data: existingEvent } = await supabase
+                  .from('calendar_events')
+                  .select('id')
+                  .eq('user_id', user.id)
+                  .eq('event_id', event.id)
+                  .single()
+
+                const eventData = {
+                  user_id: user.id,
+                  event_id: event.id,
+                  title: event.summary || 'Untitled Event',
+                  description: event.description || null,
+                  start_time: startTime,
+                  end_time: endTime,
+                  is_health_related: isHealthRelated(event.summary || '', event.description || '')
+                }
+
+                if (existingEvent) {
+                  // Update existing event
+                  const { error: updateError } = await supabase
+                    .from('calendar_events')
+                    .update(eventData)
+                    .eq('id', existingEvent.id)
+
+                  if (!updateError) {
+                    updatedEventsCount++
+                  }
+                } else {
+                  // Insert new event
+                  const { error: insertError } = await supabase
+                    .from('calendar_events')
+                    .insert(eventData)
+
+                  if (!insertError) {
+                    newEventsCount++
+                  }
+                }
+              }
+            }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: `Calendar sync completed successfully`,
+                data: {
+                  newEvents: newEventsCount,
+                  updatedEvents: updatedEventsCount,
+                  totalProcessed: calendarData.items?.length || 0,
+                  calendarId: selectedCalendarId
+                }
+              }),
+              { 
+                status: 200,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            )
+          }
+        } catch (refreshError) {
+          console.log('Token refresh failed:', refreshError)
+        }
+        
         return new Response(
           JSON.stringify({ 
-            error: 'Google access token expired. Please reconnect your Google account in API settings.' 
+            error: 'Google access token expired and refresh failed. Please reconnect your Google account in API settings.' 
           }),
           { 
             status: 401, 
@@ -250,4 +342,71 @@ function isHealthRelated(title: string, description: string): boolean {
   
   const searchText = `${title} ${description}`.toLowerCase()
   return healthKeywords.some(keyword => searchText.includes(keyword))
+}
+
+// Helper function to refresh Google access token
+async function refreshGoogleToken(supabase: any, userId: string): Promise<string> {
+  console.log('Refreshing Google token for user:', userId)
+  
+  // Get refresh token from user's config
+  const { data: config, error: configError } = await supabase
+    .from('api_configurations')
+    .select('refresh_token, id')
+    .eq('user_id', userId)
+    .eq('service_name', 'google')
+    .single()
+    
+  if (configError || !config?.refresh_token) {
+    console.log('No refresh token found:', configError)
+    throw new Error('No refresh token available. Please re-authorize Google.')
+  }
+
+  // Get client credentials from environment secrets
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
+  
+  if (!clientId || !clientSecret) {
+    console.log('Missing Google OAuth configuration in secrets')
+    throw new Error('Google OAuth configuration not found in system secrets.')
+  }
+  
+  // Refresh the token
+  const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: config.refresh_token,
+      grant_type: 'refresh_token'
+    })
+  })
+  
+  if (!refreshResponse.ok) {
+    const errorText = await refreshResponse.text()
+    console.log('Token refresh failed:', refreshResponse.status, errorText)
+    throw new Error('Failed to refresh Google token. Please re-authorize.')
+  }
+  
+  const tokenData = await refreshResponse.json()
+  console.log('Token refresh successful')
+  
+  // Update the configuration with new token
+  const { error: updateError } = await supabase
+    .from('api_configurations')
+    .update({
+      access_token: tokenData.access_token,
+      expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', config.id)
+    
+  if (updateError) {
+    console.log('Failed to update token:', updateError)
+    throw new Error('Failed to save new token')
+  }
+  
+  return tokenData.access_token
 }
