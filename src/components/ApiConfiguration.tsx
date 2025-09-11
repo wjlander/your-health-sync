@@ -303,6 +303,7 @@ const ApiConfiguration = () => {
         if (event.data.type === 'google_oauth_success') {
           popup?.close();
           window.removeEventListener('message', messageListener);
+          clearTimeout(timeoutId);
           
           toast({
             title: "Google Calendar Connected",
@@ -317,14 +318,16 @@ const ApiConfiguration = () => {
 
       window.addEventListener('message', messageListener);
 
-      // Clean up if popup is closed manually
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', messageListener);
-          setSaving(null);
-        }
-      }, 1000);
+      // Set a timeout to clean up if no response in 5 minutes
+      const timeoutId = setTimeout(() => {
+        window.removeEventListener('message', messageListener);
+        setSaving(null);
+        toast({
+          title: "OAuth Timeout", 
+          description: "The authorization process took too long. Please try again.",
+          variant: "destructive",
+        });
+      }, 300000); // 5 minutes
 
     } catch (error) {
       console.error('Google OAuth error:', error);
@@ -386,6 +389,7 @@ const ApiConfiguration = () => {
         if (event.data.type === 'alexa_oauth_success') {
           popup?.close();
           window.removeEventListener('message', messageListener);
+          clearTimeout(timeoutId);
           
           toast({
             title: "Alexa Connected",
@@ -400,14 +404,16 @@ const ApiConfiguration = () => {
 
       window.addEventListener('message', messageListener);
 
-      // Clean up if popup is closed manually
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', messageListener);
-          setSaving(null);
-        }
-      }, 1000);
+      // Set a timeout to clean up if no response in 5 minutes
+      const timeoutId = setTimeout(() => {
+        window.removeEventListener('message', messageListener);
+        setSaving(null);
+        toast({
+          title: "OAuth Timeout",
+          description: "The authorization process took too long. Please try again.",
+          variant: "destructive",
+        });
+      }, 300000); // 5 minutes
 
     } catch (error) {
       console.error('Alexa OAuth error:', error);
@@ -509,6 +515,7 @@ const ApiConfiguration = () => {
         if (event.data.type === 'fitbit_oauth_success') {
           popup?.close();
           window.removeEventListener('message', messageListener);
+          clearTimeout(timeoutId);
           
           toast({
             title: "Fitbit Connected",
@@ -523,14 +530,16 @@ const ApiConfiguration = () => {
 
       window.addEventListener('message', messageListener);
 
-      // Clean up if popup is closed manually
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', messageListener);
-          setSaving(null);
-        }
-      }, 1000);
+      // Set a timeout to clean up if no response in 5 minutes  
+      const timeoutId = setTimeout(() => {
+        window.removeEventListener('message', messageListener);
+        setSaving(null);
+        toast({
+          title: "OAuth Timeout",
+          description: "The authorization process took too long. Please try again.", 
+          variant: "destructive",
+        });
+      }, 300000); // 5 minutes
 
     } catch (error) {
       console.error('OAuth error details:', error);
