@@ -72,20 +72,26 @@ serve(async (req) => {
       )
     }
 
-    // Exchange code for tokens
+    // Exchange code for tokens using Login with Amazon endpoint
     console.log('Exchanging code for tokens...')
+    console.log('Using client_id:', config.client_id)
+    console.log('Using redirect_uri:', config.redirect_url)
+    console.log('Client secret present:', !!config.client_secret)
+    
+    const tokenParams = {
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: config.redirect_url,
+      client_id: config.client_id,
+      client_secret: config.client_secret
+    }
+    
     const tokenResponse = await fetch('https://api.amazon.com/auth/o2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: config.redirect_url,
-        client_id: config.client_id,
-        client_secret: config.client_secret
-      })
+      body: new URLSearchParams(tokenParams)
     })
 
     if (!tokenResponse.ok) {
