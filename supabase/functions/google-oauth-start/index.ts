@@ -90,8 +90,8 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Build Google OAuth URL
-    const scope = 'openid email profile https://www.googleapis.com/auth/calendar'
+    // Build Google OAuth URL - include Calendar and Tasks APIs
+    const scope = 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks'
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${clientId}&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +

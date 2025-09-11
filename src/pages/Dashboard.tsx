@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale } from 'lucide-react';
+import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale, ListTodo } from 'lucide-react';
 import HealthMetrics from '@/components/HealthMetrics';
 import CalendarEvents from '@/components/CalendarEvents';
+import GoogleTasks from '@/components/GoogleTasks';
 import RoutinesManager from '@/components/RoutinesManager';
 import ApiConfiguration from '@/components/ApiConfiguration';
 import UserCreator from '@/components/UserCreator';
@@ -69,7 +70,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto p-6">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <TrendingUp className="h-4 w-4" />
               <span>Overview</span>
@@ -81,6 +82,10 @@ const Dashboard = () => {
             <TabsTrigger value="calendar" className="flex items-center space-x-2">
               <Calendar className="h-4 w-4" />
               <span>Calendar</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center space-x-2">
+              <ListTodo className="h-4 w-4" />
+              <span>Tasks</span>
             </TabsTrigger>
             <TabsTrigger value="routines" className="flex items-center space-x-2">
               <Target className="h-4 w-4" />
@@ -110,6 +115,10 @@ const Dashboard = () => {
 
           <TabsContent value="calendar">
             <CalendarEvents />
+          </TabsContent>
+
+          <TabsContent value="tasks">
+            <GoogleTasks />
           </TabsContent>
 
           <TabsContent value="routines">
