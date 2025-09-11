@@ -13,7 +13,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.sync-fitbit-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.google-oauth-start]
 verify_jwt = true

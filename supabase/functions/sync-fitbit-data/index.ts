@@ -18,109 +18,193 @@ serve(async (req) => {
   try {
     console.log('Processing Fitbit data sync request...')
     
-    // Get the auth header to identify the user
+    // Check if this is a cron job or user request
     const authHeader = req.headers.get('authorization')
-    console.log('Auth header present:', !!authHeader)
+    const isCronJob = !authHeader || authHeader.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')
     
-    if (!authHeader) {
-      console.log('No authorization header provided')
-      return new Response(
-        JSON.stringify({ error: 'Authorization required' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    if (isCronJob) {
+      console.log('Running as cron job - syncing all users')
+      return await syncAllUsers()
+    } else {
+      console.log('Running as user request')
+      return await syncSingleUser(authHeader)
     }
 
-    // Create authenticated Supabase client with user's JWT
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+  } catch (error) {
+    console.error('=== FUNCTION ERROR ===')
+    console.error('Error:', error)
+    console.error('Stack:', error.stack)
+    
+    return new Response(
+      JSON.stringify({ 
+        error: `Server error: ${error.message}`,
+        details: error.stack 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+})
+
+async function syncAllUsers() {
+  // Create service role client for system operations
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
+
+  // Get all users with Fitbit configurations
+  const { data: configs, error: configError } = await supabase
+    .from('api_configurations')
+    .select('user_id, access_token')
+    .eq('service_name', 'fitbit')
+    .eq('is_active', true)
+    .not('access_token', 'is', null)
+
+  if (configError) {
+    console.error('Error fetching configs:', configError)
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch user configurations' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  console.log(`Found ${configs?.length || 0} users with Fitbit configs`)
+
+  let totalSynced = 0
+  const results = []
+
+  for (const config of configs || []) {
+    try {
+      const syncResult = await syncUserData(supabase, config.user_id, config.access_token)
+      totalSynced += syncResult.length
+      results.push({ userId: config.user_id, synced: syncResult.length })
+    } catch (error) {
+      console.error(`Error syncing user ${config.user_id}:`, error)
+      results.push({ userId: config.user_id, error: error.message })
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: `Cron sync completed. ${totalSynced} total data points synced for ${configs?.length || 0} users`,
+      results
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
+
+async function syncSingleUser(authHeader: string) {
+  // Create authenticated Supabase client with user's JWT
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    }
+  )
+
+  // Get user from auth header
+  console.log('Getting user from auth header...')
+  const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+  
+  if (authError || !user) {
+    console.log('Auth error:', authError)
+    return new Response(
+      JSON.stringify({ error: 'Invalid authorization' }),
+      { 
+        status: 401, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+
+  console.log('User found:', user.id)
+
+  // Get Fitbit configuration
+  console.log('Fetching Fitbit configuration...')
+  const { data: config, error: configError } = await supabase
+    .from('api_configurations')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('service_name', 'fitbit')
+    .maybeSingle()
+
+  if (configError) {
+    console.log('Database error:', configError)
+    return new Response(
+      JSON.stringify({ error: `Database error: ${configError.message}` }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+
+  if (!config || !config.access_token) {
+    console.log('No Fitbit access token found')
+    return new Response(
+      JSON.stringify({ 
+        error: 'No Fitbit access token found. Please connect to Fitbit first.' 
+      }),
+      { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+
+  console.log('Syncing Fitbit data for user:', user.id)
+
+  const syncResults = await syncUserData(supabase, user.id, config.access_token)
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: `Successfully synced ${syncResults.length} data points`,
+      data: syncResults
+    }),
+    { 
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    }
+  )
+}
+
+async function syncUserData(supabase: any, userId: string, accessToken: string) {
+
+  console.log('Syncing Fitbit data for user:', userId)
+
+  // Get date range for last 14 days
+  const today = new Date()
+  const startDate = new Date(today)
+  startDate.setDate(today.getDate() - 13) // 14 days including today
+  
+  const endDateStr = today.toISOString().split('T')[0]
+  const startDateStr = startDate.toISOString().split('T')[0]
+  
+  console.log('Syncing data for date range:', startDateStr, 'to', endDateStr)
+
+  const syncResults = []
+
+  try {
+    // Sync heart rate data (14-day range)
+    console.log('Fetching heart rate data for 14 days...')
+    const heartRateResponse = await fetch(
+      `https://api.fitbit.com/1/user/-/activities/heart/date/${startDateStr}/${endDateStr}.json`,
       {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
         },
       }
     )
-
-    // Get user from auth header
-    console.log('Getting user from auth header...')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    
-    if (authError || !user) {
-      console.log('Auth error:', authError)
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('User found:', user.id)
-
-    // Get Fitbit configuration
-    console.log('Fetching Fitbit configuration...')
-    const { data: config, error: configError } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('service_name', 'fitbit')
-      .maybeSingle()
-
-    if (configError) {
-      console.log('Database error:', configError)
-      return new Response(
-        JSON.stringify({ error: `Database error: ${configError.message}` }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    if (!config || !config.access_token) {
-      console.log('No Fitbit access token found')
-      return new Response(
-        JSON.stringify({ 
-          error: 'No Fitbit access token found. Please connect to Fitbit first.' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('Syncing Fitbit data for user:', user.id)
-
-    // Get date range for last 14 days
-    const today = new Date()
-    const startDate = new Date(today)
-    startDate.setDate(today.getDate() - 13) // 14 days including today
-    
-    const endDateStr = today.toISOString().split('T')[0]
-    const startDateStr = startDate.toISOString().split('T')[0]
-    
-    console.log('Syncing data for date range:', startDateStr, 'to', endDateStr)
-
-    const syncResults = []
-
-    try {
-      // Sync heart rate data (14-day range)
-      console.log('Fetching heart rate data for 14 days...')
-      const heartRateResponse = await fetch(
-        `https://api.fitbit.com/1/user/-/activities/heart/date/${startDateStr}/${endDateStr}.json`,
-        {
-          headers: {
-            'Authorization': `Bearer ${config.access_token}`,
-          },
-        }
-      )
 
       if (heartRateResponse.ok) {
         const heartRateData = await heartRateResponse.json()
@@ -129,18 +213,18 @@ serve(async (req) => {
         if (heartRateData['activities-heart']) {
           for (const dayData of heartRateData['activities-heart']) {
             if (dayData.value && dayData.value.restingHeartRate) {
-              const { error: insertError } = await supabase
-                .from('health_data')
-                .upsert({
-                  user_id: user.id,
-                  date: dayData.dateTime,
-                  data_type: 'resting_heart_rate',
-                  value: dayData.value.restingHeartRate,
-                  unit: 'bpm',
-                  metadata: { source: 'fitbit' }
-                }, {
-                  onConflict: 'user_id,date,data_type'
-                })
+            const { error: insertError } = await supabase
+              .from('health_data')
+              .upsert({
+                user_id: userId,
+                date: dayData.dateTime,
+                data_type: 'resting_heart_rate',
+                value: dayData.value.restingHeartRate,
+                unit: 'bpm',
+                metadata: { source: 'fitbit' }
+              }, {
+                onConflict: 'user_id,date,data_type'
+              })
               
               if (!insertError) {
                 syncResults.push({ 
@@ -163,7 +247,7 @@ serve(async (req) => {
         `https://api.fitbit.com/1/user/-/activities/steps/date/${startDateStr}/${endDateStr}.json`,
         {
           headers: {
-            'Authorization': `Bearer ${config.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
         }
       )
@@ -175,18 +259,18 @@ serve(async (req) => {
         if (stepsData['activities-steps']) {
           for (const daySteps of stepsData['activities-steps']) {
             if (daySteps.value) {
-              const { error: insertError } = await supabase
-                .from('health_data')
-                .upsert({
-                  user_id: user.id,
-                  date: daySteps.dateTime,
-                  data_type: 'steps',
-                  value: parseInt(daySteps.value),
-                  unit: 'steps',
-                  metadata: { source: 'fitbit' }
-                }, {
-                  onConflict: 'user_id,date,data_type'
-                })
+            const { error: insertError } = await supabase
+              .from('health_data')
+              .upsert({
+                user_id: userId,
+                date: daySteps.dateTime,
+                data_type: 'steps',
+                value: parseInt(daySteps.value),
+                unit: 'steps',
+                metadata: { source: 'fitbit' }
+              }, {
+                onConflict: 'user_id,date,data_type'
+              })
               
               if (!insertError) {
                 syncResults.push({ 
@@ -214,7 +298,7 @@ serve(async (req) => {
           `https://api.fitbit.com/1/user/-/body/log/weight/date/${dateStr}.json`,
           {
             headers: {
-              'Authorization': `Bearer ${config.access_token}`,
+              'Authorization': `Bearer ${accessToken}`,
             },
           }
         )
@@ -225,18 +309,18 @@ serve(async (req) => {
           if (weightData.weight && weightData.weight.length > 0) {
             const latestWeight = weightData.weight[0]
             if (latestWeight.weight) {
-              const { error: insertError } = await supabase
-                .from('health_data')
-                .upsert({
-                  user_id: user.id,
-                  date: dateStr,
-                  data_type: 'weight',
-                  value: latestWeight.weight,
-                  unit: 'kg',
-                  metadata: { source: 'fitbit' }
-                }, {
-                  onConflict: 'user_id,date,data_type'
-                })
+            const { error: insertError } = await supabase
+              .from('health_data')
+              .upsert({
+                user_id: userId,
+                date: dateStr,
+                data_type: 'weight',
+                value: latestWeight.weight,
+                unit: 'kg',
+                metadata: { source: 'fitbit' }
+              }, {
+                onConflict: 'user_id,date,data_type'
+              })
               
               if (!insertError) {
                 syncResults.push({ 
@@ -253,48 +337,11 @@ serve(async (req) => {
         }
       }
 
-    } catch (apiError) {
-      console.error('Fitbit API error:', apiError)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to fetch data from Fitbit API',
-          details: apiError.message 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('Sync completed. Results:', syncResults)
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Successfully synced ${syncResults.length} data points`,
-        data: syncResults
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
-
-  } catch (error) {
-    console.error('=== FUNCTION ERROR ===')
-    console.error('Error:', error)
-    console.error('Stack:', error.stack)
-    
-    return new Response(
-      JSON.stringify({ 
-        error: `Server error: ${error.message}`,
-        details: error.stack 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+  } catch (apiError) {
+    console.error('Fitbit API error for user', userId, ':', apiError)
+    throw apiError
   }
-})
+
+  console.log('Sync completed for user', userId, '. Results:', syncResults.length)
+  return syncResults
+}
