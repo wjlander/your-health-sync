@@ -374,6 +374,56 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
         console.log('Steps API error:', stepsResponse.status, await stepsResponse.text())
       }
 
+      // Sync calorie intake data (14-day range)
+      console.log('Fetching calorie intake data for 14 days...')
+      const caloriesResponse = await fetch(
+        `https://api.fitbit.com/1/user/-/foods/log/caloriesIn/date/${startDateStr}/${endDateStr}.json`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (caloriesResponse.ok) {
+        const caloriesData = await caloriesResponse.json()
+        console.log('Calorie intake data received for', caloriesData['foods-log-caloriesIn']?.length, 'days')
+        
+        if (caloriesData['foods-log-caloriesIn']) {
+          for (const dayCalories of caloriesData['foods-log-caloriesIn']) {
+            if (dayCalories.value) {
+            const { error: insertError } = await supabase
+              .from('health_data')
+              .upsert({
+                user_id: userId,
+                date: dayCalories.dateTime,
+                data_type: 'calories_in',
+                value: parseFloat(dayCalories.value),
+                unit: 'kcal',
+                metadata: { source: 'fitbit' }
+              }, {
+                onConflict: 'user_id,date,data_type'
+              })
+              
+              if (!insertError) {
+                syncResults.push({ 
+                  type: 'calories_in', 
+                  value: parseFloat(dayCalories.value), 
+                  unit: 'kcal',
+                  date: dayCalories.dateTime 
+                })
+              }
+            }
+          }
+        }
+      } else if (caloriesResponse.status === 401) {
+        console.log('Calories API 401 - token expired, attempting refresh...')
+        accessToken = await refreshFitbitToken(supabase, userId)
+        throw new Error('Token refreshed, please retry sync')
+      } else {
+        console.log('Calories API error:', caloriesResponse.status, await caloriesResponse.text())
+      }
+
       // Sync weight data (need to fetch each day individually)
       console.log('Fetching weight data for 14 days...')
       for (let i = 0; i < 14; i++) {

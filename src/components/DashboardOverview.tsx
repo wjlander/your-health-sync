@@ -110,7 +110,7 @@ const DashboardOverview = () => {
 
   // Calculate calories remaining based on goal and consumed
   const dailyCalorieGoal = weightGoal?.daily_calorie_deficit || 2000;
-  const caloriesConsumed = 1800; // This would come from food tracking data
+  const caloriesConsumed = getLatestValue('calories_in') || 0;
   const caloriesRemaining = Math.max(0, dailyCalorieGoal - caloriesConsumed);
 
   if (loading) {
@@ -186,8 +186,12 @@ const DashboardOverview = () => {
           <CardTitle className="text-sm font-medium text-muted-foreground">Calories Eaten</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-health-accent">{caloriesConsumed.toLocaleString()}</div>
-          <p className="text-xs text-muted-foreground">Today's intake</p>
+          <div className="text-2xl font-bold text-health-accent">
+            {caloriesConsumed > 0 ? caloriesConsumed.toLocaleString() : 'No data'}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {caloriesConsumed > 0 ? 'Today\'s intake' : 'From Fitbit'}
+          </p>
         </CardContent>
       </Card>
 
