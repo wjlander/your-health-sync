@@ -613,21 +613,21 @@ const ApiConfiguration = () => {
                   {saving === 'fitbit' ? 'Saving...' : 'Save Configuration'}
                 </Button>
                 
-                {getConfigStatus('fitbit') && fitbitConfig.client_id && fitbitConfig.redirect_url && (
-                  <Button
-                    variant="secondary"
-                    onClick={startFitbitOAuth}
-                    disabled={saving === 'fitbit'}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {saving === 'fitbit' ? (
-                      <Key className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Key className="h-4 w-4 mr-2" />
-                    )}
-                    Connect to Fitbit
-                  </Button>
-                )}
+                 {fitbitConfig.client_id && fitbitConfig.redirect_url && !getConfigStatus('fitbit') && (
+                   <Button
+                     variant="secondary"
+                     onClick={startFitbitOAuth}
+                     disabled={saving === 'fitbit'}
+                     className="bg-blue-600 hover:bg-blue-700 text-white"
+                   >
+                     {saving === 'fitbit' ? (
+                       <Key className="h-4 w-4 animate-spin mr-2" />
+                     ) : (
+                       <Key className="h-4 w-4 mr-2" />
+                     )}
+                     Connect to Fitbit
+                   </Button>
+                 )}
                 
                 {getConfigStatus('fitbit') && (
                   <Button
@@ -727,21 +727,21 @@ const ApiConfiguration = () => {
                </div>
                 <div className="flex space-x-2">
                   {/* Remove Save Config button since credentials are read-only */}
-                  {getConfigStatus('google') && googleConfig.client_id && googleConfig.client_secret && (
-                   <Button
-                     variant="secondary"
-                     onClick={startGoogleOAuth}
-                     disabled={saving === 'google'}
-                     className="bg-blue-600 hover:bg-blue-700 text-white"
-                   >
-                     {saving === 'google' ? (
-                       <Key className="h-4 w-4 animate-spin mr-2" />
-                     ) : (
-                       <Key className="h-4 w-4 mr-2" />
-                     )}
-                     Connect to Google Calendar
-                   </Button>
-                 )}
+                  {googleConfig.client_id && googleConfig.client_secret && !getConfigStatus('google') && (
+                    <Button
+                      variant="secondary"
+                      onClick={startGoogleOAuth}
+                      disabled={saving === 'google'}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {saving === 'google' ? (
+                        <Key className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Key className="h-4 w-4 mr-2" />
+                      )}
+                      Connect to Google Calendar
+                    </Button>
+                  )}
                  
                  {getConfigStatus('google') && (
                    <Button
@@ -841,21 +841,21 @@ const ApiConfiguration = () => {
                </div>
                 <div className="flex space-x-2">
                   {/* Remove Save Config button since credentials are read-only */}
-                   {getConfigStatus('alexa') && amazonConfig.client_id && amazonConfig.client_secret && amazonConfig.skill_id && (
-                    <Button
-                      variant="secondary"
-                      onClick={startAlexaOAuth}
-                      disabled={saving === 'amazon'}
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      {saving === 'amazon' ? (
-                        <Key className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Key className="h-4 w-4 mr-2" />
-                      )}
-                      Connect to Alexa
-                    </Button>
-                  )}
+                    {amazonConfig.client_id && amazonConfig.client_secret && amazonConfig.skill_id && !getConfigStatus('alexa') && (
+                     <Button
+                       variant="secondary"
+                       onClick={startAlexaOAuth}
+                       disabled={saving === 'amazon'}
+                       className="bg-orange-600 hover:bg-orange-700 text-white"
+                     >
+                       {saving === 'amazon' ? (
+                         <Key className="h-4 w-4 animate-spin mr-2" />
+                       ) : (
+                         <Key className="h-4 w-4 mr-2" />
+                       )}
+                       Connect to Alexa
+                     </Button>
+                   )}
                  
                  {getConfigStatus('alexa') && (
                    <Button
