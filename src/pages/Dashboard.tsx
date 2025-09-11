@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale, ListTodo } from 'lucide-react';
 import HealthMetrics from '@/components/HealthMetrics';
 import CalendarEvents from '@/components/CalendarEvents';
-import GoogleTasks from '@/components/GoogleTasks';
+import { TaskManager } from '@/components/TaskManager';
 import RoutinesManager from '@/components/RoutinesManager';
 import ApiConfiguration from '@/components/ApiConfiguration';
 import UserCreator from '@/components/UserCreator';
@@ -118,7 +118,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="tasks">
-            <GoogleTasks />
+            <TaskManager />
           </TabsContent>
 
           <TabsContent value="routines">
