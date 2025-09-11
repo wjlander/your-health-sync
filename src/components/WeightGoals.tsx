@@ -142,11 +142,13 @@ export function WeightGoals() {
         .select('*')
         .eq('user_id', user.id)
         .eq('date', today)
-        .in('data_type', ['calories-out', 'calories-in']);
+        .in('data_type', ['calories_in', 'steps']);
 
       if (calorieData && calorieData.length > 0) {
-        const consumed = calorieData.find(d => d.data_type === 'calories-in')?.value || 0;
-        const burned = calorieData.find(d => d.data_type === 'calories-out')?.value || 0;
+        const consumed = calorieData.find(d => d.data_type === 'calories_in')?.value || 0;
+        // Estimate calories burned from steps (rough calculation: 0.04 calories per step)
+        const steps = calorieData.find(d => d.data_type === 'steps')?.value || 0;
+        const burned = Math.round(steps * 0.04) + 1800; // Base metabolic rate + activity
         setCaloriesData({ consumed, burned });
       }
 
@@ -502,195 +504,284 @@ export function WeightGoals() {
       </div>
 
       {activeGoal ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Goal Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Current Goal
+        <div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Goal Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Current Goal
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={openEditDialog}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Start Weight:</span>
+                  <span className="font-semibold">{displayStartWeight?.toFixed(1)} {weightUnit}</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={openEditDialog}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between">
-                <span>Start Weight:</span>
-                <span className="font-semibold">{displayStartWeight?.toFixed(1)} {weightUnit}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Current Weight:</span>
-                <span className="font-semibold">{displayCurrentWeight?.toFixed(1) || 'No data'} {displayCurrentWeight ? weightUnit : ''}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Target Weight:</span>
-                <span className="font-semibold">{displayTargetWeight?.toFixed(1)} {weightUnit}</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{progress.toFixed(1)}%</span>
+                <div className="flex justify-between">
+                  <span>Current Weight:</span>
+                  <span className="font-semibold">{displayCurrentWeight?.toFixed(1) || 'No data'} {displayCurrentWeight ? weightUnit : ''}</span>
                 </div>
-                <Progress value={progress} />
-              </div>
-              <div className="flex justify-between">
-                <span>Target Date:</span>
-                <span className="font-semibold">{format(new Date(activeGoal.target_date), 'MMM dd, yyyy')}</span>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex justify-between">
+                  <span>Target Weight:</span>
+                  <span className="font-semibold">{displayTargetWeight?.toFixed(1)} {weightUnit}</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progress</span>
+                    <span>{progress.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={progress} />
+                </div>
+                <div className="flex justify-between">
+                  <span>Target Date:</span>
+                  <span className="font-semibold">{format(new Date(activeGoal.target_date), 'MMM dd, yyyy')}</span>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Progress Chart */}
-          {progressData.length > 0 && (
+            {/* Progress Chart */}
+            {progressData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingDown className="h-5 w-5" />
+                    Weight Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      weight: { label: "Weight", color: "hsl(var(--primary))" },
+                      target: { label: "Target", color: "hsl(var(--muted-foreground))" }
+                    }}
+                    className="h-[200px]"
+                  >
+                    <LineChart data={progressData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line type="monotone" dataKey="weight" stroke="var(--color-weight)" strokeWidth={2} />
+                      <ReferenceLine y={displayTargetWeight} stroke="var(--color-target)" strokeDasharray="5 5" />
+                    </LineChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Daily Tracking */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5" />
-                  Weight Progress
+                  <Activity className="h-5 w-5" />
+                  Today's Progress
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    weight: { label: "Weight", color: "hsl(var(--primary))" },
-                    target: { label: "Target", color: "hsl(var(--muted-foreground))" }
-                  }}
-                  className="h-[200px]"
-                >
-                  <LineChart data={progressData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="monotone" dataKey="weight" stroke="var(--color-weight)" strokeWidth={2} />
-                    <ReferenceLine y={displayTargetWeight} stroke="var(--color-target)" strokeDasharray="5 5" />
-                  </LineChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Daily Tracking */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Today's Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Weight Goal Deficit Target */}
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <h4 className="font-semibold text-sm mb-2">Weight Goal Target</h4>
-                <div className="flex justify-between">
-                  <span>Daily Calorie Deficit:</span>
-                  <span className="font-semibold">{activeGoal.daily_calorie_deficit} cal</span>
-                </div>
-              </div>
-
-              {/* Fitbit Data */}
-              {caloriesData ? (
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-sm">Today's Data (Fitbit)</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Calories Consumed:</span>
-                      <span className="font-semibold">{caloriesData.consumed} cal</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Calories Burned:</span>
-                      <span className="font-semibold">{caloriesData.burned} cal</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span>Actual Deficit:</span>
-                      <span className={cn("font-semibold", currentDeficit >= activeGoal.daily_calorie_deficit ? "text-green-600" : "text-orange-600")}>
-                        {currentDeficit} cal
-                      </span>
-                    </div>
+              <CardContent className="space-y-4">
+                {/* Weight Goal Deficit Target */}
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold text-sm mb-2">Weight Goal Target</h4>
+                  <div className="flex justify-between">
+                    <span>Daily Calorie Deficit:</span>
+                    <span className="font-semibold">{activeGoal.daily_calorie_deficit} cal</span>
                   </div>
                 </div>
-              ) : (
-                <div className="p-3 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
-                  No Fitbit calorie data for today
-                </div>
-              )}
 
-              {/* Progress towards goal */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Goal Progress</span>
-                  <span>{Math.min(100, deficitProgress).toFixed(1)}%</span>
-                </div>
-                <Progress value={Math.min(100, deficitProgress)} />
-                <p className="text-xs text-muted-foreground text-center">
-                  {currentDeficit >= activeGoal.daily_calorie_deficit 
-                    ? "Great! You're meeting your deficit goal today." 
-                    : `Need ${activeGoal.daily_calorie_deficit - currentDeficit} more calorie deficit to reach your goal.`}
-                </p>
-              </div>
-              <Dialog open={showEndDay} onOpenChange={setShowEndDay}>
-                <DialogTrigger asChild>
-                  <Button className="w-full">
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    End Day
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>End Day Summary</DialogTitle>
-                    <DialogDescription>
-                      Record your progress and get updated projections
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="today-weight">Today's Weight (optional) ({weightUnit})</Label>
-                      <Input
-                        id="today-weight"
-                        type="number"
-                        step="0.1"
-                        value={todayWeight}
-                        onChange={(e) => setTodayWeight(e.target.value)}
-                        placeholder={displayCurrentWeight ? displayCurrentWeight.toFixed(1) : `Enter weight in ${weightUnit}`}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="notes">Notes</Label>
-                      <Textarea
-                        id="notes"
-                        value={todayNotes}
-                        onChange={(e) => setTodayNotes(e.target.value)}
-                        placeholder="How did today go? Any challenges or wins?"
-                      />
-                    </div>
-                    <div className="p-4 bg-muted rounded-lg">
-                      <h4 className="font-semibold mb-2">Today's Summary</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span>Calorie Deficit:</span>
-                          <span className={currentDeficit >= activeGoal.daily_calorie_deficit ? "text-green-600" : "text-orange-600"}>
-                            {currentDeficit} / {activeGoal.daily_calorie_deficit}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Status:</span>
-                          <Badge variant={currentDeficit >= activeGoal.daily_calorie_deficit ? "default" : "secondary"}>
-                            {currentDeficit >= activeGoal.daily_calorie_deficit ? "On Track" : "Behind Target"}
-                          </Badge>
-                        </div>
+                {/* Fitbit Data */}
+                {caloriesData ? (
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm">Today's Data (Fitbit)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Calories Consumed:</span>
+                        <span className="font-semibold">{caloriesData.consumed} cal</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Calories Burned:</span>
+                        <span className="font-semibold">{caloriesData.burned} cal</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span>Actual Deficit:</span>
+                        <span className={cn("font-semibold", currentDeficit >= activeGoal.daily_calorie_deficit ? "text-green-600" : "text-orange-600")}>
+                          {currentDeficit} cal
+                        </span>
                       </div>
                     </div>
-                    <Button onClick={handleEndDay} className="w-full">
-                      Complete Day
-                    </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
+                ) : (
+                  <div className="p-3 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
+                    No Fitbit calorie data for today
+                  </div>
+                )}
+
+                {/* Progress towards goal */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Goal Progress</span>
+                    <span>{Math.min(100, deficitProgress).toFixed(1)}%</span>
+                  </div>
+                  <Progress value={Math.min(100, deficitProgress)} />
+                  <p className="text-xs text-muted-foreground text-center">
+                    {currentDeficit >= activeGoal.daily_calorie_deficit 
+                      ? "Great! You're meeting your deficit goal today." 
+                      : `Need ${activeGoal.daily_calorie_deficit - currentDeficit} more calorie deficit to reach your goal.`}
+                  </p>
+                </div>
+                <Dialog open={showEndDay} onOpenChange={setShowEndDay}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full">
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      End Day
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>End Day Summary</DialogTitle>
+                      <DialogDescription>
+                        Record your progress and get updated projections
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="today-weight">Today's Weight (optional) ({weightUnit})</Label>
+                        <Input
+                          id="today-weight"
+                          type="number"
+                          step="0.1"
+                          value={todayWeight}
+                          onChange={(e) => setTodayWeight(e.target.value)}
+                          placeholder={displayCurrentWeight ? displayCurrentWeight.toFixed(1) : `Enter weight in ${weightUnit}`}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="notes">Notes</Label>
+                        <Textarea
+                          id="notes"
+                          value={todayNotes}
+                          onChange={(e) => setTodayNotes(e.target.value)}
+                          placeholder="How did today go? Any challenges or wins?"
+                        />
+                      </div>
+                      <div className="p-4 bg-muted rounded-lg">
+                        <h4 className="font-semibold mb-2">Today's Summary</h4>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Calorie Deficit:</span>
+                            <span className={currentDeficit >= activeGoal.daily_calorie_deficit ? "text-green-600" : "text-orange-600"}>
+                              {currentDeficit} / {activeGoal.daily_calorie_deficit}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Status:</span>
+                            <Badge variant={currentDeficit >= activeGoal.daily_calorie_deficit ? "default" : "secondary"}>
+                              {currentDeficit >= activeGoal.daily_calorie_deficit ? "On Track" : "Behind Target"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <Button onClick={handleEndDay} className="w-full">
+                        Complete Day
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Edit Goal Dialog */}
+          <Dialog open={showEditGoal} onOpenChange={setShowEditGoal}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Weight Loss Goal</DialogTitle>
+                <DialogDescription>
+                  Update your weight loss target and timeline
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-target-weight">Target Weight ({weightUnit})</Label>
+                  <Input
+                    id="edit-target-weight"
+                    type="number"
+                    step="0.1"
+                    value={editTargetWeight}
+                    onChange={(e) => setEditTargetWeight(e.target.value)}
+                    placeholder={`Enter target weight in ${weightUnit}`}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-weekly-loss">Weekly Loss Target ({weightUnit})</Label>
+                  <Input
+                    id="edit-weekly-loss"
+                    type="number"
+                    step="0.1"
+                    value={editWeeklyLoss}
+                    onChange={(e) => {
+                      setEditWeeklyLoss(e.target.value);
+                      // Recalculate calorie deficit when weekly loss changes
+                      if (e.target.value) {
+                        const weeklyLossValue = parseFloat(e.target.value);
+                        const weeklyLossLbs = userUnits === 'metric' ? weeklyLossValue * 2.20462 : weeklyLossValue;
+                        const newDeficit = Math.round(weeklyLossLbs * 3500 / 7);
+                        setEditDailyDeficit(newDeficit.toString());
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-daily-deficit">Daily Calorie Deficit</Label>
+                  <Input
+                    id="edit-daily-deficit"
+                    type="number"
+                    value={editDailyDeficit}
+                    onChange={(e) => setEditDailyDeficit(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Target Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !editTargetDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {editTargetDate ? format(editTargetDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={editTargetDate}
+                        onSelect={setEditTargetDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleEditGoal} className="flex-1">
+                    Update Goal
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowEditGoal(false)} className="flex-1">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       ) : (
         <Card>
