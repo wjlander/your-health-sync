@@ -59,7 +59,7 @@ serve(async (req) => {
       )
     }
 
-    // Get API credentials from will@w-j-lander.uk's configuration
+    // Get API credentials from Jayne's configuration (shared credentials)
     const { data: willConfig, error: willConfigError } = await supabaseAdmin
       .from('api_configurations')
       .select('client_id, client_secret, redirect_url')

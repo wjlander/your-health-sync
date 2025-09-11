@@ -118,21 +118,22 @@ serve(async (req) => {
       )
     }
 
-    if (!config.redirect_url) {
-      console.log('Missing redirect_url in config')
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing Fitbit Redirect URL. Please configure it in the API settings.' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    // Set redirect URL if not set or fix truncated URL
+    let redirectUrl = config.redirect_url
+    if (!redirectUrl || redirectUrl.endsWith('fitbit-oauth-callbac')) {
+      redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/fitbit-oauth-callback`
+      
+      // Update the configuration with the correct redirect URL
+      await supabase
+        .from('api_configurations')
+        .update({ redirect_url: redirectUrl })
+        .eq('id', config.id)
+      
+      console.log('Updated redirect_url to:', redirectUrl)
     }
 
     console.log('Using client_id:', config.client_id)
-    console.log('Using redirect_url:', config.redirect_url)
+    console.log('Using redirect_url:', redirectUrl)
 
     // Generate state parameter for security
     const stateData = {
@@ -146,7 +147,7 @@ serve(async (req) => {
     const params = new URLSearchParams({
       client_id: config.client_id,
       response_type: 'code',
-      redirect_uri: config.redirect_url,
+      redirect_uri: redirectUrl,
       scope: 'activity heartrate location nutrition profile settings sleep social weight',
       state: state
     })
