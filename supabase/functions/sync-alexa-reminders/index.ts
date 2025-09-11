@@ -68,19 +68,18 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Get Alexa configuration
-    console.log('Fetching Alexa configuration...')
-    const { data: config, error: configError } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('service_name', 'alexa')
-      .maybeSingle()
+    // Route request through skill instead of direct API call
+    const { data, error } = await supabase.functions.invoke('send-skill-request', {
+      body: {
+        action: action === 'create' ? 'create_reminder' : 'list_reminders',
+        data: action === 'create' ? { reminderText: body.reminderText, triggerTime: body.triggerTime } : {}
+      }
+    })
 
-    if (configError) {
-      console.log('Database error:', configError)
+    if (error) {
+      console.log('Skill request error:', error)
       return new Response(
-        JSON.stringify({ error: `Database error: ${configError.message}` }),
+        JSON.stringify({ error: `Skill request failed: ${error.message}` }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -88,166 +87,13 @@ serve(async (req) => {
       )
     }
 
-    if (!config || !config.access_token) {
-      console.log('No Alexa configuration or access token found')
-      return new Response(
-        JSON.stringify({ 
-          error: 'No Alexa access token found. Please connect your Alexa account first.',
-          requiresAuth: true
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('Alexa configuration found, performing action:', action)
-
-    // Handle different actions
-    if (action === 'list') {
-      // List reminders using Alexa API
-      const remindersResponse = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${config.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!remindersResponse.ok) {
-        const errorText = await remindersResponse.text()
-        console.log('Alexa API error:', errorText)
-        
-        if (remindersResponse.status === 401) {
-          return new Response(
-            JSON.stringify({ 
-              error: 'Alexa access token expired. Please reconnect your account.',
-              requiresReauth: true 
-            }),
-            { 
-              status: 401, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          )
-        }
-        
-        return new Response(
-          JSON.stringify({ error: `Alexa API error: ${errorText}` }),
-          { 
-            status: remindersResponse.status, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json' 
       }
-
-      const remindersData = await remindersResponse.json()
-      console.log('Retrieved reminders:', remindersData)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Found ${remindersData.totalCount || 0} reminders`,
-          reminders: remindersData.alerts || []
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    } else if (action === 'create') {
-      // Create a reminder using Alexa API
-      const { reminderText, triggerTime } = body
-      
-      if (!reminderText || !triggerTime) {
-        return new Response(
-          JSON.stringify({ error: 'Missing reminderText or triggerTime in request' }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      const reminderPayload = {
-        requestTime: new Date().toISOString(),
-        trigger: {
-          type: 'SCHEDULED_ABSOLUTE',
-          scheduledTime: triggerTime
-        },
-        alertInfo: {
-          spokenInfo: {
-            content: [{
-              locale: 'en-US',
-              text: reminderText
-            }]
-          }
-        },
-        pushNotification: {
-          status: 'ENABLED'
-        }
-      }
-
-      console.log('Creating reminder with payload:', JSON.stringify(reminderPayload, null, 2))
-
-      const createResponse = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(reminderPayload)
-      })
-
-      if (!createResponse.ok) {
-        const errorText = await createResponse.text()
-        console.log('Alexa reminder creation error:', errorText)
-        
-        if (createResponse.status === 401) {
-          return new Response(
-            JSON.stringify({ 
-              error: 'Alexa access token expired. Please reconnect your account.',
-              requiresReauth: true 
-            }),
-            { 
-              status: 401, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          )
-        }
-        
-        return new Response(
-          JSON.stringify({ error: `Failed to create reminder: ${errorText}` }),
-          { 
-            status: createResponse.status, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      const createdReminder = await createResponse.json()
-      console.log('Reminder created successfully:', createdReminder)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Reminder created successfully on Alexa device',
-          reminder: createdReminder
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    } else {
-      return new Response(
-        JSON.stringify({ error: `Unsupported action: ${action}` }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    })
 
   } catch (error) {
     console.error('=== FUNCTION ERROR ===')

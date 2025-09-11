@@ -114,9 +114,9 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Use Login with Amazon scope - valid scopes are: profile, profile:user_id, postal_code
-    const scope = 'profile'
-    console.log('Using Login with Amazon scope:', scope)
+    // Use Account Linking scope for Alexa skill
+    const scope = 'alexa::ask:skills:readwrite alexa::ask:models:readwrite'
+    console.log('Using Account Linking scope:', scope)
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
       `scope=${encodeURIComponent(scope)}&` +
