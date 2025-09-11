@@ -15,8 +15,28 @@ serve(async (req) => {
   }
 
   try {
-    const body = req.method === 'POST' ? await req.json() : null
-    const action = body?.action || 'list' // 'list', 'create', or 'delete'
+    let body = null;
+    let action = 'list'; // default action
+    
+    // Safely parse JSON body for POST requests
+    if (req.method === 'POST') {
+      const text = await req.text();
+      if (text && text.trim()) {
+        try {
+          body = JSON.parse(text);
+          action = body?.action || 'list';
+        } catch (parseError) {
+          console.log('Failed to parse JSON body:', text);
+          return new Response(
+            JSON.stringify({ error: 'Invalid JSON in request body' }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+      }
+    }
     
     // Get the auth header to identify the user
     const authHeader = req.headers.get('authorization')
