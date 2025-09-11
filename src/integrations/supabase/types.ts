@@ -169,11 +169,14 @@ export type Database = {
           amazon_routine_id: string | null
           created_at: string | null
           description: string | null
+          duration_days: number | null
           id: string
           is_active: boolean | null
+          reminder_times: string[] | null
           routine_type: string
           schedule_days: number[] | null
           schedule_time: string | null
+          start_date: string | null
           title: string
           updated_at: string | null
           user_id: string
@@ -182,11 +185,14 @@ export type Database = {
           amazon_routine_id?: string | null
           created_at?: string | null
           description?: string | null
+          duration_days?: number | null
           id?: string
           is_active?: boolean | null
+          reminder_times?: string[] | null
           routine_type: string
           schedule_days?: number[] | null
           schedule_time?: string | null
+          start_date?: string | null
           title: string
           updated_at?: string | null
           user_id: string
@@ -195,11 +201,14 @@ export type Database = {
           amazon_routine_id?: string | null
           created_at?: string | null
           description?: string | null
+          duration_days?: number | null
           id?: string
           is_active?: boolean | null
+          reminder_times?: string[] | null
           routine_type?: string
           schedule_days?: number[] | null
           schedule_time?: string | null
+          start_date?: string | null
           title?: string
           updated_at?: string | null
           user_id?: string

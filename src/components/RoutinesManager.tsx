@@ -19,6 +19,9 @@ interface Routine {
   routine_type: string;
   schedule_days?: number[];
   schedule_time?: string;
+  reminder_times?: string[];
+  duration_days?: number;
+  start_date?: string;
   is_active: boolean;
   amazon_routine_id?: string;
   created_at: string;
@@ -38,6 +41,9 @@ const RoutinesManager = () => {
     routine_type: 'amazon',
     schedule_days: [] as number[],
     schedule_time: '',
+    reminder_times: [] as string[],
+    duration_days: 7,
+    start_date: new Date().toISOString().split('T')[0],
   });
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -120,6 +126,9 @@ const RoutinesManager = () => {
           routine_type: newRoutine.routine_type,
           schedule_days: newRoutine.schedule_days.length > 0 ? newRoutine.schedule_days : null,
           schedule_time: newRoutine.schedule_time || null,
+          reminder_times: newRoutine.reminder_times.length > 0 ? newRoutine.reminder_times : null,
+          duration_days: newRoutine.duration_days,
+          start_date: newRoutine.start_date,
           is_active: true,
         });
 
@@ -136,6 +145,9 @@ const RoutinesManager = () => {
         routine_type: 'amazon',
         schedule_days: [],
         schedule_time: '',
+        reminder_times: [],
+        duration_days: 7,
+        start_date: new Date().toISOString().split('T')[0],
       });
       setDialogOpen(false);
       fetchRoutines();
@@ -227,11 +239,40 @@ const RoutinesManager = () => {
       }
     }
     
-    if (routine.schedule_time) {
+    if (routine.reminder_times && routine.reminder_times.length > 0) {
+      parts.push(`at ${routine.reminder_times.join(', ')}`);
+    } else if (routine.schedule_time) {
       parts.push(`at ${routine.schedule_time}`);
+    }
+
+    if (routine.duration_days) {
+      parts.push(`for ${routine.duration_days} days`);
     }
     
     return parts.join(' ') || 'No schedule set';
+  };
+
+  const addReminderTime = () => {
+    setNewRoutine({
+      ...newRoutine,
+      reminder_times: [...newRoutine.reminder_times, '09:00']
+    });
+  };
+
+  const updateReminderTime = (index: number, time: string) => {
+    const updatedTimes = [...newRoutine.reminder_times];
+    updatedTimes[index] = time;
+    setNewRoutine({
+      ...newRoutine,
+      reminder_times: updatedTimes
+    });
+  };
+
+  const removeReminderTime = (index: number) => {
+    setNewRoutine({
+      ...newRoutine,
+      reminder_times: newRoutine.reminder_times.filter((_, i) => i !== index)
+    });
   };
 
   return (
@@ -330,13 +371,69 @@ const RoutinesManager = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="time">Time (Optional)</Label>
+                  <Label htmlFor="time">Single Time (Optional)</Label>
                   <Input
                     id="time"
                     type="time"
                     value={newRoutine.schedule_time}
                     onChange={(e) => setNewRoutine({ ...newRoutine, schedule_time: e.target.value })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Multiple Daily Reminders (Optional)</Label>
+                  <div className="space-y-2">
+                    {newRoutine.reminder_times.map((time, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          type="time"
+                          value={time}
+                          onChange={(e) => updateReminderTime(index, e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeReminderTime(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addReminderTime}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Reminder Time
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Duration (Days)</Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={newRoutine.duration_days}
+                      onChange={(e) => setNewRoutine({ ...newRoutine, duration_days: parseInt(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="start-date">Start Date</Label>
+                    <Input
+                      id="start-date"
+                      type="date"
+                      value={newRoutine.start_date}
+                      onChange={(e) => setNewRoutine({ ...newRoutine, start_date: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex space-x-2 pt-4">

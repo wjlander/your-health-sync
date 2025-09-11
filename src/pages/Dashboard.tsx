@@ -11,6 +11,7 @@ import RoutinesManager from '@/components/RoutinesManager';
 import ApiConfiguration from '@/components/ApiConfiguration';
 import UserCreator from '@/components/UserCreator';
 import { WeightGoals } from '@/components/WeightGoals';
+import { UnitsPreference } from '@/components/UnitsPreference';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -162,6 +163,10 @@ const Dashboard = () => {
 
           <TabsContent value="settings">
             <div className="space-y-6">
+              <UnitsPreference onUnitsChange={(units) => {
+                // Units changed, this could trigger other components to refresh
+                console.log('Units changed to:', units);
+              }} />
               <ApiConfiguration />
             </div>
           </TabsContent>
