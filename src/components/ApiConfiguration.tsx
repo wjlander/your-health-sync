@@ -152,10 +152,10 @@ const ApiConfiguration = () => {
             break;
           case 'alexa':
             setAmazonConfig({
-              client_id: config.client_id || '',
-              client_secret: config.client_secret || '',
-              skill_id: config.api_key || '',
-              redirect_url: (config as any).redirect_url || '',
+              client_id: 'Managed by Secrets',
+              client_secret: 'Managed by Secrets',
+              skill_id: 'Managed by Secrets',
+              redirect_url: 'https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/alexa-oauth-callback',
             });
             break;
         }
@@ -905,32 +905,30 @@ const ApiConfiguration = () => {
                     </p>
                  </div>
                </div>
-                <div className="flex space-x-2">
-                  {/* Since credentials are now centralized in Supabase secrets, always show connect button when not connected */}
-                    {!getConfigStatus('alexa') && (
+                 <div className="flex space-x-2">
+                   {/* Since credentials are now in Supabase secrets, always show connect button for Alexa */}
+                   <Button
+                     variant="secondary"
+                     onClick={startAlexaOAuth}
+                     disabled={saving === 'amazon'}
+                     className="bg-orange-600 hover:bg-orange-700 text-white"
+                   >
+                     {saving === 'amazon' ? (
+                       <Key className="h-4 w-4 animate-spin mr-2" />
+                     ) : (
+                       <Key className="h-4 w-4 mr-2" />
+                     )}
+                     {getConfigStatus('alexa') ? 'Reconnect to Alexa' : 'Connect to Alexa'}
+                   </Button>
+                   
+                   {getConfigStatus('alexa') && (
                      <Button
-                       variant="secondary"
-                       onClick={startAlexaOAuth}
-                       disabled={saving === 'amazon'}
-                       className="bg-orange-600 hover:bg-orange-700 text-white"
+                       variant="outline"
+                       onClick={() => testConnection('alexa')}
                      >
-                       {saving === 'amazon' ? (
-                         <Key className="h-4 w-4 animate-spin mr-2" />
-                       ) : (
-                         <Key className="h-4 w-4 mr-2" />
-                       )}
-                       Connect to Alexa
+                       Test Connection
                      </Button>
                    )}
-                  
-                  {getConfigStatus('alexa') && (
-                    <Button
-                      variant="outline"
-                      onClick={() => testConnection('alexa')}
-                    >
-                      Test Connection
-                    </Button>
-                  )}
                 </div>
             </CardContent>
           </Card>
