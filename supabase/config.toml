@@ -39,5 +39,8 @@ verify_jwt = true
 [functions.sync-google-calendar]
 verify_jwt = true
 
+[functions.sync-alexa-reminders]
+verify_jwt = true
+
 [functions.list-google-calendars]
 verify_jwt = true
