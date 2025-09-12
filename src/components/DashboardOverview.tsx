@@ -104,6 +104,10 @@ const DashboardOverview = () => {
     if (dataType === 'steps') {
       return value.toLocaleString();
     }
+
+    if (dataType === 'sleep') {
+      return value.toLocaleString();
+    }
     
     return `${Math.round(value)} ${unit}`;
   };
