@@ -115,11 +115,18 @@ serve(async (req) => {
     }))
 
     // Use Login with Amazon scopes for Account Linking with extended permissions
-    const scope = 'profile alexa::household:lists:read alexa::household:lists:write alexa::alerts:reminders:skill:readwrite'
-    console.log('Using Login with Amazon scopes:', scope)
+    // Each scope must be URL encoded separately and joined with %20 (space)
+    const scopes = [
+      'profile',
+      'alexa::household:lists:read',
+      'alexa::household:lists:write', 
+      'alexa::alerts:reminders:skill:readwrite'
+    ]
+    const scope = scopes.map(s => encodeURIComponent(s)).join('%20')
+    console.log('Using Login with Amazon scopes:', scopes.join(' '))
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${config.client_id}&` +
-      `scope=${encodeURIComponent(scope)}&` +
+      `scope=${scope}&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `state=${state}`
