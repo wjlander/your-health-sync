@@ -360,74 +360,43 @@ const ApiConfiguration = () => {
     
     try {
       setSaving('amazon');
-      console.log('Connecting to Alexa directly...');
+      console.log('Marking Alexa skill as connected...');
       
-      // Check if record exists and update or insert accordingly
-      const { data: existingConfig } = await supabase
+      // Simply mark the skill as configured - actual functionality works through the webhook
+      const { error } = await supabase
         .from('api_configurations')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('service_name', 'alexa')
-        .single();
-
-      let error;
-      if (existingConfig) {
-        // Update existing record
-        const { error: updateError } = await supabase
-          .from('api_configurations')
-          .update({
-            client_id: 'system-managed',
-            client_secret: 'system-managed',
-            access_token: 'system-managed',
-            refresh_token: 'system-managed',
-            is_active: true,
-            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            redirect_url: `${window.location.origin}/dashboard`,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingConfig.id);
-        error = updateError;
-      } else {
-        // Insert new record
-        const { error: insertError } = await supabase
-          .from('api_configurations')
-          .insert({
-            user_id: user.id,
-            service_name: 'alexa',
-            client_id: 'system-managed',
-            client_secret: 'system-managed',
-            access_token: 'system-managed',
-            refresh_token: 'system-managed',
-            is_active: true,
-            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            redirect_url: `${window.location.origin}/dashboard`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        error = insertError;
-      }
+        .upsert({
+          user_id: user.id,
+          service_name: 'alexa',
+          client_id: 'configured',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,service_name'
+        });
 
       if (error) {
         console.error('Error connecting Alexa:', error);
         toast({
-          title: "Connection Error",
-          description: `Failed to connect to Alexa: ${error.message}`,
+          title: "Error",
+          description: "Failed to connect Alexa. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Success",
-        description: "Connected to Alexa successfully! You can now manage your routines.",
+        title: "Alexa Skill Connected",
+        description: "Your Alexa skill is now configured for reminders. Make sure to enable reminders permissions in your skill.",
       });
       
-      fetchConfigs(); // Refresh configurations
+      fetchConfigs();
     } catch (error) {
-      console.error('Error connecting to Alexa:', error);
+      console.error('Error in Alexa connection:', error);
       toast({
-        title: "Error",
-        description: "Failed to connect to Alexa",
+        title: "Error", 
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
