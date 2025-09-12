@@ -558,8 +558,8 @@ export function WeightGoals() {
                 <CardContent>
                   <ChartContainer
                     config={{
-                      weight: { label: "Weight", color: "hsl(var(--primary))" },
-                      target: { label: "Target", color: "hsl(var(--muted-foreground))" }
+                      weight: { label: `Weight (${weightUnit})`, color: "hsl(var(--primary))" },
+                      target: { label: `Target (${weightUnit})`, color: "hsl(var(--muted-foreground))" }
                     }}
                     className="h-[200px]"
                   >
@@ -569,7 +569,7 @@ export function WeightGoals() {
                       <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Line type="monotone" dataKey="weight" stroke="var(--color-weight)" strokeWidth={2} />
-                      <ReferenceLine y={displayTargetWeight} stroke="var(--color-target)" strokeDasharray="5 5" />
+                      <ReferenceLine y={userUnits === 'imperial' ? activeGoal.target_weight * 2.20462 : activeGoal.target_weight} stroke="var(--color-target)" strokeDasharray="5 5" />
                     </LineChart>
                   </ChartContainer>
                 </CardContent>
