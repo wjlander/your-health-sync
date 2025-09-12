@@ -56,16 +56,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get API credentials from will@w-j-lander.uk's configuration
-    const { data: willConfig, error: willConfigError } = await supabase
-      .from('api_configurations')
-      .select('client_id, client_secret, redirect_url')
-      .eq('user_id', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd')
-      .eq('service_name', 'alexa')
-      .single()
+    // Get API credentials from Supabase secrets
+    console.log('Getting Alexa credentials from secrets...')
+    const clientId = Deno.env.get('ALEXA_CLIENT_ID')
+    const clientSecret = Deno.env.get('ALEXA_CLIENT_SECRET')
+    const redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/alexa-oauth-callback`
 
-    if (willConfigError || !willConfig) {
-      console.log('Will\'s config not found:', willConfigError)
+    if (!clientId || !clientSecret) {
+      console.log('Missing Alexa credentials in secrets')
       return new Response(
         '<html><body><h1>Configuration Error</h1><p>System configuration not found</p><script>window.close();</script></body></html>',
         { headers: { 'Content-Type': 'text/html' } }
@@ -88,9 +86,9 @@ serve(async (req) => {
         .insert({
           user_id: stateData.user_id,
           service_name: 'alexa',
-          client_id: willConfig.client_id,
-          client_secret: willConfig.client_secret,
-          redirect_url: willConfig.redirect_url,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_url: redirectUrl,
           is_active: true
         })
         .select()
@@ -108,16 +106,16 @@ serve(async (req) => {
 
     // Exchange code for tokens using Login with Amazon endpoint
     console.log('Exchanging code for tokens...')
-    console.log('Using client_id:', willConfig.client_id)
-    console.log('Using redirect_uri:', willConfig.redirect_url)
-    console.log('Client secret present:', !!willConfig.client_secret)
+    console.log('Using client_id:', clientId)
+    console.log('Using redirect_uri:', redirectUrl)
+    console.log('Client secret present:', !!clientSecret)
     
     const tokenParams = {
       grant_type: 'authorization_code',
       code: code,
-      redirect_uri: willConfig.redirect_url,
-      client_id: willConfig.client_id,
-      client_secret: willConfig.client_secret
+      redirect_uri: redirectUrl,
+      client_id: clientId,
+      client_secret: clientSecret
     }
     
     const tokenResponse = await fetch('https://api.amazon.com/auth/o2/token', {

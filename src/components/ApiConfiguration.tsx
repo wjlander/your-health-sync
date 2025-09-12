@@ -850,8 +850,8 @@ const ApiConfiguration = () => {
                 <div className="flex items-center space-x-2">
                   <Info className="h-4 w-4 text-blue-600" />
                   <p className="text-sm text-blue-800">
-                    <strong>Shared Credentials:</strong> API credentials are provided system-wide. 
-                    Click "Connect to Alexa" to link your personal Amazon account.
+                    <strong>Managed Credentials:</strong> Alexa credentials are now managed through Supabase secrets for enhanced security. 
+                    Contact your administrator to update Client ID, Client Secret, or Skill ID.
                   </p>
                 </div>
               </div>

@@ -63,31 +63,17 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Get Alexa configuration (use will@w-j-lander.uk's settings for all users)
-    console.log('Fetching Alexa configuration...')
-    const { data: config, error: configError } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .eq('user_id', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd')
-      .eq('service_name', 'alexa')
-      .maybeSingle()
+    // Get Alexa configuration from Supabase secrets
+    console.log('Fetching Alexa configuration from secrets...')
+    const clientId = Deno.env.get('ALEXA_CLIENT_ID')
+    const clientSecret = Deno.env.get('ALEXA_CLIENT_SECRET')
+    const skillId = Deno.env.get('ALEXA_SKILL_ID')
 
-    if (configError) {
-      console.log('Database error:', configError)
-      return new Response(
-        JSON.stringify({ error: `Database error: ${configError.message}` }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    if (!config || !config.client_id || !config.client_secret) {
-      console.log('No complete Alexa configuration found')
+    if (!clientId || !clientSecret) {
+      console.log('Missing Alexa credentials in secrets')
       return new Response(
         JSON.stringify({ 
-          error: 'No Alexa configuration found. Please save your Alexa Client ID and Client Secret first.' 
+          error: 'Alexa credentials not configured. Please contact administrator.' 
         }),
         { 
           status: 400, 
@@ -96,17 +82,8 @@ serve(async (req) => {
       )
     }
 
-    // Set redirect URL if not set
-    let redirectUrl = config.redirect_url
-    if (!redirectUrl) {
-      redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/alexa-oauth-callback`
-      
-      // Update the configuration with the redirect URL
-      await supabase
-        .from('api_configurations')
-        .update({ redirect_url: redirectUrl })
-        .eq('id', config.id)
-    }
+    // Set redirect URL
+    const redirectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/alexa-oauth-callback`
 
     // Generate OAuth state with user info
     const state = btoa(JSON.stringify({
@@ -125,7 +102,7 @@ serve(async (req) => {
     const scope = scopes.map(s => encodeURIComponent(s)).join('%20')
     console.log('Using Login with Amazon scopes:', scopes.join(' '))
     const authUrl = `https://www.amazon.com/ap/oa?` +
-      `client_id=${config.client_id}&` +
+      `client_id=${clientId}&` +
       `scope=${scope}&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
