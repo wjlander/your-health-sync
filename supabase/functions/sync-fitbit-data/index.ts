@@ -424,6 +424,64 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
         console.log('Calories API error:', caloriesResponse.status, await caloriesResponse.text())
       }
 
+      // Sync sleep data
+      console.log('Fetching sleep data for 14 days...')
+      for (let i = 0; i < 14; i++) {
+        const currentDate = new Date(today)
+        currentDate.setDate(today.getDate() - i)
+        const dateStr = currentDate.toISOString().split('T')[0]
+        
+        const sleepResponse = await fetch(
+          `https://api.fitbit.com/1.2/user/-/sleep/date/${dateStr}.json`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+          }
+        )
+
+        if (sleepResponse.ok) {
+          const sleepData = await sleepResponse.json()
+          
+          if (sleepData.summary && sleepData.summary.totalMinutesAsleep) {
+            const sleepHours = sleepData.summary.totalMinutesAsleep / 60
+            
+            const { error: insertError } = await supabase
+              .from('health_data')
+              .upsert({
+                user_id: userId,
+                date: dateStr,
+                data_type: 'sleep',
+                value: sleepHours,
+                unit: 'hours',
+                metadata: { 
+                  source: 'fitbit',
+                  totalMinutesAsleep: sleepData.summary.totalMinutesAsleep,
+                  totalSleepRecords: sleepData.summary.totalSleepRecords,
+                  totalTimeInBed: sleepData.summary.totalTimeInBed
+                }
+              }, {
+                onConflict: 'user_id,date,data_type'
+              })
+              
+              if (!insertError) {
+                syncResults.push({ 
+                  type: 'sleep', 
+                  value: sleepHours, 
+                  unit: 'hours',
+                  date: dateStr 
+                })
+              }
+          }
+        } else if (sleepResponse.status === 401) {
+          console.log('Sleep API 401 - token expired, attempting refresh...')
+          accessToken = await refreshFitbitToken(supabase, userId)
+          throw new Error('Token refreshed, please retry sync')
+        } else {
+          console.log(`Sleep API error for ${dateStr}:`, sleepResponse.status)
+        }
+      }
+
       // Sync weight data (need to fetch each day individually)
       console.log('Fetching weight data for 14 days...')
       for (let i = 0; i < 14; i++) {
