@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { makeGoogleApiCall } from '../_shared/token-refresh.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,76 +68,54 @@ serve(async (req) => {
       )
     }
 
-    let accessToken = googleConfig.access_token
+    // Fetch tasks using the shared utility for automatic token refresh
+    try {
+      const tasksResponse = await makeGoogleApiCall(
+        supabase,
+        user.id,
+        `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`
+      )
 
-    // Check if token needs refresh
-    if (googleConfig.expires_at && new Date(googleConfig.expires_at) <= new Date()) {
-      accessToken = await refreshGoogleToken(supabase, user.id, googleConfig.refresh_token)
-      if (!accessToken) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to refresh Google access token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-    }
-
-    // Fetch tasks from the specified task list
-    const tasksResponse = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!tasksResponse.ok) {
-      if (tasksResponse.status === 401) {
-        accessToken = await refreshGoogleToken(supabase, user.id, googleConfig.refresh_token)
-        if (!accessToken) {
+      if (!tasksResponse.ok) {
+        const errorText = await tasksResponse.text()
+        console.log('Google Tasks API error:', errorText)
+        
+        if (tasksResponse.status === 401) {
           return new Response(
-            JSON.stringify({ error: 'Failed to refresh Google access token' }),
+            JSON.stringify({ error: 'Google authorization expired. Please reconnect your Google account.' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
         
-        // Retry with new token
-        const retryResponse = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (!retryResponse.ok) {
-          const errorText = await retryResponse.text()
-          console.log('Google Tasks API error after refresh:', errorText)
-          return new Response(
-            JSON.stringify({ error: 'Failed to fetch tasks from Google' }),
-            { status: retryResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-        
-        const retryData = await retryResponse.json()
         return new Response(
-          JSON.stringify({ tasks: retryData.items || [] }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Failed to fetch tasks from Google' }),
+          { status: tasksResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const tasksData = await tasksResponse.json()
+      console.log('Fetched', tasksData.items?.length || 0, 'tasks from list', taskListId)
+
+      return new Response(
+        JSON.stringify({ tasks: tasksData.items || [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+
+    } catch (error) {
+      console.error('Error fetching tasks:', error)
+      
+      if (error.message.includes('refresh')) {
+        return new Response(
+          JSON.stringify({ error: 'Google authorization expired. Please reconnect your Google account.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
       
-      const errorText = await tasksResponse.text()
-      console.log('Google Tasks API error:', errorText)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch tasks from Google' }),
-        { status: tasksResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    const tasksData = await tasksResponse.json()
-    console.log('Fetched', tasksData.items?.length || 0, 'tasks from list', taskListId)
-
-    return new Response(
-      JSON.stringify({ tasks: tasksData.items || [] }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
 
   } catch (error) {
     console.error('Function error:', error)
@@ -146,41 +125,3 @@ serve(async (req) => {
     )
   }
 })
-
-async function refreshGoogleToken(supabase: any, userId: string, refreshToken: string): Promise<string | null> {
-  try {
-    if (!refreshToken) return null
-
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '',
-        client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '',
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    })
-
-    if (!tokenResponse.ok) return null
-
-    const tokenData = await tokenResponse.json()
-    const newAccessToken = tokenData.access_token
-    const expiresIn = tokenData.expires_in || 3600
-    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
-
-    await supabase
-      .from('api_configurations')
-      .update({
-        access_token: newAccessToken,
-        expires_at: expiresAt,
-      })
-      .eq('user_id', userId)
-      .eq('service_name', 'google')
-
-    return newAccessToken
-  } catch (error) {
-    console.log('Error refreshing token:', error)
-    return null
-  }
-}
