@@ -188,10 +188,24 @@ const ApiConfiguration = () => {
       return;
     }
 
-    console.log('Saving config for user:', user.id, 'service:', serviceName);
+    // For Alexa, save to shared user ID so all users benefit from updated credentials
+    const targetUserId = serviceName === 'alexa' ? '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd' : user.id;
+    
+    console.log('Saving config for user:', targetUserId, 'service:', serviceName);
     setSaving(serviceName);
     try {
-      const existingConfig = configs.find(c => c.service_name === serviceName);
+      // For Alexa, look for existing config in the shared user account
+      let existingConfig;
+      if (serviceName === 'alexa') {
+        const { data: sharedConfigs } = await supabase
+          .from('api_configurations')
+          .select('*')
+          .eq('user_id', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd')
+          .eq('service_name', 'alexa');
+        existingConfig = sharedConfigs?.[0];
+      } else {
+        existingConfig = configs.find(c => c.service_name === serviceName);
+      }
 
       if (existingConfig) {
         const { error } = await supabase
@@ -208,7 +222,7 @@ const ApiConfiguration = () => {
         const { error } = await supabase
           .from('api_configurations')
           .insert({
-            user_id: user.id,
+            user_id: targetUserId,
             service_name: serviceName,
             ...configData,
             is_active: true,
@@ -220,7 +234,7 @@ const ApiConfiguration = () => {
       console.log(`${serviceName} configuration saved successfully`);
       toast({
         title: "Configuration Saved",
-        description: `${serviceName} API configuration has been saved successfully`,
+        description: `${serviceName} API configuration has been saved successfully${serviceName === 'alexa' ? ' for all users' : ''}`,
       });
 
       fetchConfigs();
