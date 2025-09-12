@@ -362,22 +362,50 @@ const ApiConfiguration = () => {
       setSaving('amazon');
       console.log('Connecting to Alexa directly...');
       
-      // Simply mark Alexa as connected without OAuth
-      const { error } = await supabase
+      // Check if record exists and update or insert accordingly
+      const { data: existingConfig } = await supabase
         .from('api_configurations')
-        .upsert({
-          user_id: user.id,
-          service_name: 'alexa',
-          client_id: 'system-managed',
-          client_secret: 'system-managed',
-          access_token: 'system-managed',
-          refresh_token: 'system-managed',
-          is_active: true,
-          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-          redirect_url: `${window.location.origin}/dashboard`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('service_name', 'alexa')
+        .single();
+
+      let error;
+      if (existingConfig) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('api_configurations')
+          .update({
+            client_id: 'system-managed',
+            client_secret: 'system-managed',
+            access_token: 'system-managed',
+            refresh_token: 'system-managed',
+            is_active: true,
+            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            redirect_url: `${window.location.origin}/dashboard`,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingConfig.id);
+        error = updateError;
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('api_configurations')
+          .insert({
+            user_id: user.id,
+            service_name: 'alexa',
+            client_id: 'system-managed',
+            client_secret: 'system-managed',
+            access_token: 'system-managed',
+            refresh_token: 'system-managed',
+            is_active: true,
+            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            redirect_url: `${window.location.origin}/dashboard`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        error = insertError;
+      }
 
       if (error) {
         console.error('Error connecting Alexa:', error);
