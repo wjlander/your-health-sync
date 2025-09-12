@@ -79,6 +79,7 @@ const HealthMetrics = () => {
   const syncFitbitData = async () => {
     setSyncing(true);
     try {
+      console.log('Starting Fitbit sync with sleep data...');
       const { data, error } = await supabase.functions.invoke('sync-fitbit-data');
       
       if (error) {
