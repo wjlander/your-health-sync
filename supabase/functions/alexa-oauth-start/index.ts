@@ -91,14 +91,9 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Use Login with Amazon scopes for Account Linking with extended permissions
-    // Each scope must be URL encoded separately and joined with %20 (space)
-    const scopes = [
-      'profile',
-      'alexa::household:lists:read',
-      'alexa::household:lists:write', 
-      'alexa::alerts:reminders:skill:readwrite'
-    ]
+    // Use Login with Amazon scopes for Account Linking - only 'profile' is supported for LWA
+    // The skill permissions (household lists, reminders) are handled through the Alexa Skill manifest, not OAuth scopes
+    const scopes = ['profile']
     const scope = scopes.map(s => encodeURIComponent(s)).join('%20')
     console.log('Using Login with Amazon scopes:', scopes.join(' '))
     const authUrl = `https://www.amazon.com/ap/oa?` +
