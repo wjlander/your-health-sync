@@ -129,16 +129,18 @@ function handleSessionEndedRequest(requestBody: any) {
 
 async function getUserProfile(supabase: any, accessToken: string) {
   try {
-    // Look up user by access token in api_configurations
+    // For simplified approach, we'll use the first active Alexa configuration
+    // In production, you'd match the Alexa user ID to your user
     const { data: config, error } = await supabase
       .from('api_configurations')
       .select('user_id')
       .eq('service_name', 'alexa')
-      .eq('access_token', accessToken)
+      .eq('is_active', true)
+      .limit(1)
       .single()
     
     if (error || !config) {
-      console.log('No user found for access token:', error)
+      console.log('No active Alexa user found:', error)
       return null
     }
     
@@ -156,8 +158,8 @@ async function handleGetTasks(supabase: any, userId: string) {
     
     const { data: tasks, error } = await supabase
       .from('tasks')
-      .select('title, completed, due_date')
-      .eq('user_id', userId)
+      .select('title, status, due_date')
+      .eq('created_by', userId)
       .gte('due_date', today)
       .order('due_date', { ascending: true })
       .limit(5)
@@ -171,7 +173,7 @@ async function handleGetTasks(supabase: any, userId: string) {
       return createAlexaResponse('You have no upcoming tasks. Great job staying on top of things!')
     }
     
-    const pendingTasks = tasks.filter(task => !task.completed)
+    const pendingTasks = tasks.filter(task => task.status === 'pending')
     
     if (pendingTasks.length === 0) {
       return createAlexaResponse('All your upcoming tasks are completed. Well done!')
@@ -193,10 +195,10 @@ async function handleCreateTask(supabase: any, userId: string, taskName: string)
     const { error } = await supabase
       .from('tasks')
       .insert({
-        user_id: userId,
+        created_by: userId,
         title: taskName,
-        due_date: new Date().toISOString().split('T')[0],
-        completed: false
+        due_date: new Date().toISOString(),
+        status: 'pending'
       })
     
     if (error) {
@@ -217,10 +219,10 @@ async function handleGetHealthData(supabase: any, userId: string) {
     // Get recent health data
     const { data: healthData, error } = await supabase
       .from('health_data')
-      .select('data_type, value, recorded_at')
+      .select('data_type, value, created_at')
       .eq('user_id', userId)
-      .gte('recorded_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
-      .order('recorded_at', { ascending: false })
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+      .order('created_at', { ascending: false })
       .limit(10)
     
     if (error) {
@@ -267,7 +269,7 @@ async function handleGetRoutines(supabase: any, userId: string) {
   try {
     const { data: routines, error } = await supabase
       .from('routines')
-      .select('name, frequency')
+      .select('title, routine_type')
       .eq('user_id', userId)
       .eq('is_active', true)
       .limit(5)
@@ -281,7 +283,7 @@ async function handleGetRoutines(supabase: any, userId: string) {
       return createAlexaResponse('You don\'t have any active routines set up.')
     }
     
-    const routineList = routines.map(routine => `${routine.name} (${routine.frequency})`).join(', ')
+    const routineList = routines.map(routine => `${routine.title} (${routine.routine_type})`).join(', ')
     return createAlexaResponse(`Your active routines are: ${routineList}.`)
     
   } catch (error) {
