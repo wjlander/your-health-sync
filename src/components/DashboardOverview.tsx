@@ -206,6 +206,19 @@ const DashboardOverview = () => {
           <p className="text-xs text-muted-foreground">Until daily goal</p>
         </CardContent>
       </Card>
+      {/* Sleep */}
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center space-y-0 space-x-2">
+          <Footprints className="h-4 w-4 text-health-primary" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Today's Sleep</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-health-primary">
+            {formatValue(getLatestValue('sleep'), 'sleep', 'sleep')}
+          </div>
+          <p className="text-xs text-muted-foreground">Goal: 10,000</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
