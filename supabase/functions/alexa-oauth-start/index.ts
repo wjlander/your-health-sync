@@ -91,16 +91,15 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Try with the most basic Amazon scope that should always work
-    console.log('Using basic profile scope for Login with Amazon')
+    // Remove scope parameter as this Security Profile doesn't support it
+    console.log('Using no scope parameter for Login with Amazon')
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${clientId}&` +
-      `scope=profile&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `state=${state}`
 
-    console.log('Generated Alexa Account Linking URL with basic profile scope')
+    console.log('Generated Alexa Account Linking URL without scope parameter')
     console.log('Full auth URL:', authUrl)
 
     return new Response(
