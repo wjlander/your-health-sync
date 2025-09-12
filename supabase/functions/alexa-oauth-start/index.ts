@@ -91,19 +91,15 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // Use Login with Amazon scopes for Account Linking - only 'profile' is supported for LWA
-    // The skill permissions (household lists, reminders) are handled through the Alexa Skill manifest, not OAuth scopes
-    const scopes = ['profile']
-    const scope = scopes.map(s => encodeURIComponent(s)).join('%20')
-    console.log('Using Login with Amazon scopes:', scopes.join(' '))
+    // For Alexa Account Linking, no scope parameter needed
+    console.log('Using no scope parameter for Alexa Account Linking')
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${clientId}&` +
-      `scope=${scope}&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `state=${state}`
 
-    console.log('Generated Alexa Skill auth URL with scope:', scope)
+    console.log('Generated Alexa Account Linking URL (no scope)')
     console.log('Full auth URL:', authUrl)
 
     return new Response(
