@@ -91,15 +91,16 @@ serve(async (req) => {
       timestamp: Date.now()
     }))
 
-    // For Alexa Account Linking, no scope parameter needed
-    console.log('Using no scope parameter for Alexa Account Linking')
+    // For Alexa Account Linking, use profile scope
+    console.log('Using profile scope for Alexa Account Linking')
     const authUrl = `https://www.amazon.com/ap/oa?` +
       `client_id=${clientId}&` +
+      `scope=profile&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
       `state=${state}`
 
-    console.log('Generated Alexa Account Linking URL (no scope)')
+    console.log('Generated Alexa Account Linking URL with profile scope')
     console.log('Full auth URL:', authUrl)
 
     return new Response(
