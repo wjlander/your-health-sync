@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Activity, Heart, Footprints, Utensils, Target } from 'lucide-react';
+import { Activity, Heart, Footprints, Utensils, Target, Moon } from 'lucide-react';
 import { UnitsType, convertWeight, getWeightUnit } from './UnitsPreference';
 
 interface HealthData {
@@ -106,7 +106,10 @@ const DashboardOverview = () => {
     }
 
     if (dataType === 'sleep') {
-      return value.toLocaleString();
+      // Convert minutes to hours and minutes
+      const hours = Math.floor(value / 60);
+      const minutes = value % 60;
+      return `${hours}h ${minutes}m`;
     }
     
     return `${Math.round(value)} ${unit}`;
@@ -213,14 +216,16 @@ const DashboardOverview = () => {
       {/* Sleep */}
       <Card>
         <CardHeader className="pb-2 flex flex-row items-center space-y-0 space-x-2">
-          <Footprints className="h-4 w-4 text-health-primary" />
-          <CardTitle className="text-sm font-medium text-muted-foreground">Today's Sleep</CardTitle>
+          <Moon className="h-4 w-4 text-health-secondary" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Last Night's Sleep</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-health-primary">
-            {formatValue(getLatestValue('sleep'), 'sleep', 'sleep')}
+          <div className="text-2xl font-bold text-health-secondary">
+            {getLatestValue('sleep') > 0 ? formatValue(getLatestValue('sleep'), 'sleep', 'minutes') : 'No data'}
           </div>
-          <p className="text-xs text-muted-foreground">Goal: 10,000</p>
+          <p className="text-xs text-muted-foreground">
+            {getLatestValue('sleep') > 0 ? 'Goal: 8h 0m' : 'From Fitbit'}
+          </p>
         </CardContent>
       </Card>
     </div>
