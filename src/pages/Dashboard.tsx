@@ -47,10 +47,10 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
-      <header className="bg-gradient-health text-white p-4 shadow-lg">
-        <div className="container mx-auto flex justify-between items-center">
+      <header className="bg-gradient-health text-white p-3 md:p-4 shadow-lg">
+        <div className="mx-auto flex justify-between items-center px-2 md:px-4 max-w-full">
           <div className="flex items-center space-x-2">
             <Heart className="h-6 w-6 md:h-8 md:w-8" />
             <h1 className="text-lg md:text-2xl font-bold">{isMobile ? 'Health Sync' : 'Health & Wellness Dashboard'}</h1>
@@ -71,9 +71,9 @@ const Dashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto p-3 md:p-6">
-        <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
-          <TabsList className={`${isMobile ? 'flex overflow-x-auto scrollbar-hide p-2 gap-2' : 'grid w-full grid-cols-9'} bg-muted rounded-lg`}>
+      <main className="mx-auto p-2 md:p-6 max-w-full overflow-x-hidden">
+        <Tabs defaultValue="overview" className="space-y-3 md:space-y-6 w-full">
+          <TabsList className={`${isMobile ? 'flex overflow-x-auto scrollbar-hide p-2 gap-1 w-full' : 'grid w-full grid-cols-9'} bg-muted rounded-lg`}>
             <TabsTrigger 
               value="overview" 
               className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
