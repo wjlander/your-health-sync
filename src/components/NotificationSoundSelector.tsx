@@ -183,8 +183,11 @@ export const NotificationSoundSelector = () => {
 
           <div className="space-y-2">
             <Label htmlFor="sound-upload" className="text-sm font-medium">
-              Upload Custom Sound
+              Upload Custom Sound (Web only - not supported in mobile app)
             </Label>
+            <div className="text-xs text-muted-foreground mb-2">
+              Custom sounds work in web browser but are not supported in the Android/iOS mobile app due to platform limitations.
+            </div>
             <div className="flex gap-2">
               <Input
                 id="sound-upload"
@@ -206,7 +209,7 @@ export const NotificationSoundSelector = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Upload WAV, MP3, OGG, or M4A files (max 5MB)
+              Upload WAV, MP3, OGG, or M4A files (max 5MB) - Web browser only
             </p>
           </div>
         </div>

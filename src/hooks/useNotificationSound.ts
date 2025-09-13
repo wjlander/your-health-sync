@@ -12,11 +12,11 @@ export interface NotificationSound {
 
 export const NOTIFICATION_SOUNDS: NotificationSound[] = [
   { id: 'default', name: 'Default', filename: 'default' },
-  { id: 'beep', name: 'Beep', filename: 'beep.wav' },
-  { id: 'chime', name: 'Chime', filename: 'chime.wav' },
-  { id: 'bell', name: 'Bell', filename: 'bell.wav' },
-  { id: 'notification', name: 'Notification', filename: 'notification.wav' },
-  { id: 'alert', name: 'Alert', filename: 'alert.wav' },
+  { id: 'beep', name: 'Beep', filename: 'beep', url: '/sounds/beep.wav' },
+  { id: 'chime', name: 'Chime', filename: 'chime', url: '/sounds/chime.wav' },
+  { id: 'bell', name: 'Bell', filename: 'bell', url: '/sounds/bell.wav' },
+  { id: 'notification', name: 'Notification', filename: 'notification', url: '/sounds/notification.wav' },
+  { id: 'alert', name: 'Alert', filename: 'alert', url: '/sounds/alert.wav' },
 ];
 
 const STORAGE_KEY = 'notification-sound-preference';

@@ -44,18 +44,19 @@ export const useNotifications = () => {
     try {
       let soundConfig: string | undefined = undefined;
       
-      // Handle different sound types
+      // Handle different sound types for Android compatibility
       if (selectedSound.id === 'default') {
         // Use system default notification sound
         soundConfig = undefined;
       } else if (selectedSound.isCustom) {
-        // For custom sounds, we need to use the filename without path
-        // Capacitor expects just the filename for custom sounds in the app bundle
-        soundConfig = selectedSound.filename;
-        console.log('Using custom sound filename:', soundConfig);
+        // For custom sounds from Supabase, disable for now as they don't work in Android
+        // Use default sound instead
+        console.warn('Custom sounds not supported in Android app, using default');
+        soundConfig = undefined;
       } else {
-        // For built-in sounds, use just the base filename without extension
-        soundConfig = selectedSound.filename.replace(/\.[^/.]+$/, "");
+        // For built-in sounds, use just the filename without extension
+        // These are now bundled with the app in public/sounds/
+        soundConfig = selectedSound.filename;
         console.log('Using built-in sound:', soundConfig);
       }
       
