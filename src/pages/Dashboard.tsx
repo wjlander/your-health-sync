@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, Activity, Calendar, Settings, LogOut, Target, TrendingUp, Users, Scale, ListTodo, Plus } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import HealthMetrics from '@/components/HealthMetrics';
 import CalendarEvents from '@/components/CalendarEvents';
 import { TaskManager } from '@/components/TaskManager';
@@ -19,6 +20,7 @@ import { CustomTrackers } from '@/components/CustomTrackers';
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -50,63 +52,90 @@ const Dashboard = () => {
       <header className="bg-gradient-health text-white p-4 shadow-lg">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <Heart className="h-8 w-8" />
-            <h1 className="text-2xl font-bold">Health & Wellness Dashboard</h1>
+            <Heart className="h-6 w-6 md:h-8 md:w-8" />
+            <h1 className="text-lg md:text-2xl font-bold">{isMobile ? 'Health Sync' : 'Health & Wellness Dashboard'}</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm opacity-90">Welcome, {user?.email}</span>
+          <div className="flex items-center space-x-2 md:space-x-4">
+            {!isMobile && <span className="text-sm opacity-90">Welcome, {user?.email}</span>}
             <Button
               variant="outline"
-              size="sm"
+              size={isMobile ? "sm" : "sm"}
               onClick={handleSignOut}
               className="bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              <LogOut className="h-4 w-4 mr-1 md:mr-2" />
+              {isMobile ? '' : 'Sign Out'}
             </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto p-6">
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-9">
-            <TabsTrigger value="overview" className="flex items-center space-x-2">
+      <main className="container mx-auto p-3 md:p-6">
+        <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
+          <TabsList className={`${isMobile ? 'flex overflow-x-auto scrollbar-hide p-1 space-x-1' : 'grid w-full grid-cols-9'} bg-muted rounded-lg`}>
+            <TabsTrigger 
+              value="overview" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <TrendingUp className="h-4 w-4" />
-              <span>Overview</span>
+              {!isMobile && <span>Overview</span>}
             </TabsTrigger>
-            <TabsTrigger value="health" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="health" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Activity className="h-4 w-4" />
-              <span>Health Data</span>
+              {!isMobile && <span>Health Data</span>}
             </TabsTrigger>
-            <TabsTrigger value="trackers" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="trackers" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Plus className="h-4 w-4" />
-              <span>Trackers</span>
+              {!isMobile && <span>Trackers</span>}
             </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="calendar" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Calendar className="h-4 w-4" />
-              <span>Calendar</span>
+              {!isMobile && <span>Calendar</span>}
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="tasks" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <ListTodo className="h-4 w-4" />
-              <span>Tasks</span>
+              {!isMobile && <span>Tasks</span>}
             </TabsTrigger>
-            <TabsTrigger value="routines" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="routines" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Target className="h-4 w-4" />
-              <span>Routines</span>
+              {!isMobile && <span>Routines</span>}
             </TabsTrigger>
-            <TabsTrigger value="weight" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="weight" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Scale className="h-4 w-4" />
-              <span>Weight Goals</span>
+              {!isMobile && <span>Weight Goals</span>}
             </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="users" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Users className="h-4 w-4" />
-              <span>Users</span>
+              {!isMobile && <span>Users</span>}
             </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="settings" 
+              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+            >
               <Settings className="h-4 w-4" />
-              <span>Settings</span>
+              {!isMobile && <span>Settings</span>}
             </TabsTrigger>
           </TabsList>
 
