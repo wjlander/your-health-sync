@@ -73,66 +73,66 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto p-3 md:p-6">
         <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
-          <TabsList className={`${isMobile ? 'flex overflow-x-auto scrollbar-hide p-1 space-x-1' : 'grid w-full grid-cols-9'} bg-muted rounded-lg`}>
+          <TabsList className={`${isMobile ? 'flex overflow-x-auto scrollbar-hide p-2 gap-2' : 'grid w-full grid-cols-9'} bg-muted rounded-lg`}>
             <TabsTrigger 
               value="overview" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <TrendingUp className="h-4 w-4" />
               {!isMobile && <span>Overview</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="health" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Activity className="h-4 w-4" />
               {!isMobile && <span>Health Data</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="trackers" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Plus className="h-4 w-4" />
               {!isMobile && <span>Trackers</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="calendar" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Calendar className="h-4 w-4" />
               {!isMobile && <span>Calendar</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="tasks" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <ListTodo className="h-4 w-4" />
               {!isMobile && <span>Tasks</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="routines" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Target className="h-4 w-4" />
               {!isMobile && <span>Routines</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="weight" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Scale className="h-4 w-4" />
               {!isMobile && <span>Weight Goals</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="users" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Users className="h-4 w-4" />
               {!isMobile && <span>Users</span>}
             </TabsTrigger>
             <TabsTrigger 
               value="settings" 
-              className={`flex items-center ${isMobile ? 'flex-shrink-0 px-3 py-2' : 'space-x-2'}`}
+              className={`flex items-center justify-center ${isMobile ? 'flex-shrink-0 min-w-12 w-12 h-10 p-0' : 'space-x-2'}`}
             >
               <Settings className="h-4 w-4" />
               {!isMobile && <span>Settings</span>}
