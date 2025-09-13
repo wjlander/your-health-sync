@@ -269,6 +269,43 @@ const ApiConfiguration = () => {
     return true;
   };
 
+  const disconnectService = async (serviceName: string) => {
+    if (!user) return;
+    
+    try {
+      const config = configs.find(c => c.service_name === serviceName);
+      if (!config) return;
+
+      // Clear tokens to force re-authentication
+      const { error } = await supabase
+        .from('api_configurations')
+        .update({
+          access_token: null,
+          refresh_token: null,
+          expires_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('service_name', serviceName);
+
+      if (error) throw error;
+
+      toast({
+        title: `${serviceName} Disconnected`,
+        description: `${serviceName} has been disconnected. Click Connect to re-authenticate.`,
+      });
+
+      fetchConfigs();
+    } catch (error) {
+      console.error('Error disconnecting service:', error);
+      toast({
+        title: "Disconnection Failed",
+        description: `Failed to disconnect ${serviceName}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const startGoogleOAuth = async () => {
     try {
       setSaving('google');
@@ -756,31 +793,39 @@ const ApiConfiguration = () => {
                    </p>
                  </div>
                </div>
-                <div className="flex space-x-2">
-                   {/* Always show connect/reconnect button to allow reauthentication for new permissions */}
-                   <Button
-                     variant="secondary"
-                     onClick={startGoogleOAuth}
-                     disabled={saving === 'google'}
-                     className="bg-blue-600 hover:bg-blue-700 text-white"
-                   >
-                     {saving === 'google' ? (
-                       <Key className="h-4 w-4 animate-spin mr-2" />
-                     ) : (
-                       <Key className="h-4 w-4 mr-2" />
-                     )}
-                     {getConfigStatus('google') ? 'Reconnect to Google' : 'Connect to Google Calendar'}
-                   </Button>
-                  
-                  {getConfigStatus('google') && (
+                 <div className="flex space-x-2">
+                    {/* Always show connect/reconnect button to allow reauthentication for new permissions */}
                     <Button
-                      variant="outline"
-                      onClick={() => testConnection('google')}
+                      variant="secondary"
+                      onClick={startGoogleOAuth}
+                      disabled={saving === 'google'}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      Test Connection
+                      {saving === 'google' ? (
+                        <Key className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Key className="h-4 w-4 mr-2" />
+                      )}
+                      {getConfigStatus('google') ? 'Reconnect to Google' : 'Connect to Google Calendar'}
                     </Button>
-                  )}
-               </div>
+                   
+                   {getConfigStatus('google') && (
+                     <>
+                       <Button
+                         variant="outline"
+                         onClick={() => testConnection('google')}
+                       >
+                         Test Connection
+                       </Button>
+                       <Button
+                         variant="destructive"
+                         onClick={() => disconnectService('google')}
+                       >
+                         Disconnect
+                       </Button>
+                     </>
+                   )}
+                </div>
             </CardContent>
           </Card>
         </TabsContent>

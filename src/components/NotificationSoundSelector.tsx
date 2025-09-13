@@ -2,16 +2,24 @@ import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Volume2, Play } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Volume2, Play, Upload, Trash2 } from "lucide-react";
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useToast } from "@/hooks/use-toast";
+import { useRef, useState } from "react";
 
 export const NotificationSoundSelector = () => {
-  const { selectedSound, updateSound, availableSounds } = useNotificationSound();
+  const { selectedSound, updateSound, availableSounds, uploadCustomSound, deleteCustomSound } = useNotificationSound();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const testSound = async () => {
     try {
+      // For custom sounds, we need to handle them differently on mobile
+      const soundFile = selectedSound.isCustom ? selectedSound.url : selectedSound.filename;
+      
       // Schedule a test notification with the selected sound
       await LocalNotifications.schedule({
         notifications: [
@@ -20,7 +28,7 @@ export const NotificationSoundSelector = () => {
             body: "This is how your notifications will sound",
             id: 99999, // Use a high ID for test notifications
             schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
-            sound: selectedSound.filename,
+            sound: soundFile,
             attachments: undefined,
             actionTypeId: '',
             extra: null
@@ -37,6 +45,77 @@ export const NotificationSoundSelector = () => {
       toast({
         title: "Error",
         description: "Failed to test notification sound",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/mp4'];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a WAV, MP3, OGG, or M4A file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const success = await uploadCustomSound(file);
+      if (success) {
+        toast({
+          title: "Sound uploaded",
+          description: "Your custom notification sound has been uploaded successfully",
+        });
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload the sound file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteSound = async (soundId: string) => {
+    try {
+      const success = await deleteCustomSound(soundId);
+      if (success) {
+        toast({
+          title: "Sound deleted",
+          description: "Custom notification sound has been deleted",
+        });
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Delete failed",
+        description: "Failed to delete the sound file. Please try again.",
         variant: "destructive",
       });
     }
@@ -69,21 +148,68 @@ export const NotificationSoundSelector = () => {
             <SelectContent>
               {availableSounds.map((sound) => (
                 <SelectItem key={sound.id} value={sound.id}>
-                  {sound.name}
+                  <div className="flex items-center justify-between w-full">
+                    <span>{sound.name}</span>
+                    {sound.isCustom && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteSound(sound.id);
+                        }}
+                        className="ml-2 p-1 h-6 w-6"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         
-        <Button 
-          variant="outline" 
-          onClick={testSound}
-          className="w-full flex items-center gap-2"
-        >
-          <Play className="h-4 w-4" />
-          Test Sound
-        </Button>
+        <div className="space-y-4">
+          <Button 
+            variant="outline" 
+            onClick={testSound}
+            className="w-full flex items-center gap-2"
+          >
+            <Play className="h-4 w-4" />
+            Test Sound
+          </Button>
+
+          <div className="space-y-2">
+            <Label htmlFor="sound-upload" className="text-sm font-medium">
+              Upload Custom Sound
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="sound-upload"
+                type="file"
+                ref={fileInputRef}
+                accept="audio/*"
+                onChange={handleFileUpload}
+                disabled={uploading}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                {uploading ? 'Uploading...' : 'Upload'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload WAV, MP3, OGG, or M4A files (max 5MB)
+            </p>
+          </div>
+        </div>
         
         <p className="text-xs text-muted-foreground">
           The test notification will appear in 1 second after clicking "Test Sound"

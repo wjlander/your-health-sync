@@ -30,6 +30,9 @@ export const useNotifications = () => {
     scheduleAt: Date
   ) => {
     try {
+      // For custom sounds, use the URL, for built-in sounds use filename
+      const soundFile = selectedSound.isCustom ? selectedSound.url : selectedSound.filename;
+      
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -37,7 +40,7 @@ export const useNotifications = () => {
             body,
             id,
             schedule: { at: scheduleAt },
-            sound: selectedSound.filename,
+            sound: soundFile,
             attachments: undefined,
             actionTypeId: '',
             extra: null

@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 
 export interface NotificationSound {
   id: string;
   name: string;
   filename: string;
+  isCustom?: boolean;
+  url?: string;
 }
 
 export const NOTIFICATION_SOUNDS: NotificationSound[] = [
@@ -18,19 +22,128 @@ export const NOTIFICATION_SOUNDS: NotificationSound[] = [
 const STORAGE_KEY = 'notification-sound-preference';
 
 export const useNotificationSound = () => {
+  const { user } = useAuth();
   const [selectedSound, setSelectedSound] = useState<NotificationSound>(
     NOTIFICATION_SOUNDS[0] // Default to 'default'
   );
+  const [customSounds, setCustomSounds] = useState<NotificationSound[]>([]);
 
-  // Load saved preference on mount
+  // Load saved preference and custom sounds on mount
+  useEffect(() => {
+    loadCustomSounds();
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const soundId = JSON.parse(saved);
+      // Will be set after custom sounds are loaded
+      setTimeout(() => {
+        const allSounds = [...NOTIFICATION_SOUNDS, ...customSounds];
+        const sound = allSounds.find(s => s.id === soundId) || NOTIFICATION_SOUNDS[0];
+        setSelectedSound(sound);
+      }, 100);
+    }
+  }, [user]);
+
+  // Update selected sound when custom sounds change
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const soundId = JSON.parse(saved);
-      const sound = NOTIFICATION_SOUNDS.find(s => s.id === soundId) || NOTIFICATION_SOUNDS[0];
+      const allSounds = [...NOTIFICATION_SOUNDS, ...customSounds];
+      const sound = allSounds.find(s => s.id === soundId) || NOTIFICATION_SOUNDS[0];
       setSelectedSound(sound);
     }
-  }, []);
+  }, [customSounds]);
+
+  const loadCustomSounds = async () => {
+    if (!user) return;
+
+    try {
+      const { data: files, error } = await supabase.storage
+        .from('notification-sounds')
+        .list(user.id);
+
+      if (error) {
+        console.error('Error loading custom sounds:', error);
+        return;
+      }
+
+      const customSoundsList: NotificationSound[] = await Promise.all(
+        files.map(async (file) => {
+          const { data } = supabase.storage
+            .from('notification-sounds')
+            .getPublicUrl(`${user.id}/${file.name}`);
+
+          return {
+            id: `custom-${file.name}`,
+            name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+            filename: file.name,
+            isCustom: true,
+            url: data.publicUrl,
+          };
+        })
+      );
+
+      setCustomSounds(customSoundsList);
+    } catch (error) {
+      console.error('Error loading custom sounds:', error);
+    }
+  };
+
+  const uploadCustomSound = async (file: File): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('notification-sounds')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        return false;
+      }
+
+      // Reload custom sounds
+      await loadCustomSounds();
+      return true;
+    } catch (error) {
+      console.error('Error uploading sound:', error);
+      return false;
+    }
+  };
+
+  const deleteCustomSound = async (soundId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const sound = customSounds.find(s => s.id === soundId);
+      if (!sound) return false;
+
+      const { error } = await supabase.storage
+        .from('notification-sounds')
+        .remove([`${user.id}/${sound.filename}`]);
+
+      if (error) {
+        console.error('Delete error:', error);
+        return false;
+      }
+
+      // If deleted sound was selected, switch to default
+      if (selectedSound.id === soundId) {
+        updateSound(NOTIFICATION_SOUNDS[0]);
+      }
+
+      // Reload custom sounds
+      await loadCustomSounds();
+      return true;
+    } catch (error) {
+      console.error('Error deleting sound:', error);
+      return false;
+    }
+  };
 
   // Save preference when changed
   const updateSound = (sound: NotificationSound) => {
@@ -41,6 +154,9 @@ export const useNotificationSound = () => {
   return {
     selectedSound,
     updateSound,
-    availableSounds: NOTIFICATION_SOUNDS,
+    availableSounds: [...NOTIFICATION_SOUNDS, ...customSounds],
+    uploadCustomSound,
+    deleteCustomSound,
+    loadCustomSounds,
   };
 };
