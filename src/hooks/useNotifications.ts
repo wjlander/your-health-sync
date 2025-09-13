@@ -1,11 +1,14 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useEffect } from 'react';
+import { useNotificationSound } from './useNotificationSound';
 
 interface NotificationPermissions {
   display: 'granted' | 'denied' | 'prompt';
 }
 
 export const useNotifications = () => {
+  const { selectedSound } = useNotificationSound();
+  
   useEffect(() => {
     // Request notification permissions on app start
     const requestPermissions = async () => {
@@ -34,7 +37,7 @@ export const useNotifications = () => {
             body,
             id,
             schedule: { at: scheduleAt },
-            sound: 'beep.wav',
+            sound: selectedSound.filename,
             attachments: undefined,
             actionTypeId: '',
             extra: null
