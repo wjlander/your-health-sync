@@ -65,12 +65,12 @@ const ApiConfiguration = () => {
     console.log('Shared credentials user ID:', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd');
     
     try {
-      // Fetch will's API configurations to display credentials
-      console.log('Fetching Will configs...');
-      const { data: willConfigs, error: willError } = await supabase
-        .from('api_configurations')
-        .select('*')
-        .eq('user_id', '595d5a28-e8dd-4da1-aeae-b6f2c5c478fd'); // Changed to Jayne's ID where the configs actually are
+    // Fetch will's API configurations to display credentials
+    console.log('Fetching Will configs...');
+    const { data: willConfigs, error: willError } = await supabase
+      .from('api_configurations')
+      .select('*')
+      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd'); // Will's ID for shared credentials
 
       if (willError) {
         console.error('Will configs error:', willError);
