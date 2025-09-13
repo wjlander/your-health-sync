@@ -17,6 +17,7 @@ export const NOTIFICATION_SOUNDS: NotificationSound[] = [
   { id: 'bell', name: 'Bell', filename: 'bell', url: '/sounds/bell.wav' },
   { id: 'notification', name: 'Notification', filename: 'notification', url: '/sounds/notification.wav' },
   { id: 'alert', name: 'Alert', filename: 'alert', url: '/sounds/alert.wav' },
+  { id: 'correct-answer', name: 'Correct Answer', filename: 'mixkit-correct-answer-tone-2870', url: '/sounds/mixkit-correct-answer-tone-2870.wav' },
 ];
 
 const STORAGE_KEY = 'notification-sound-preference';
