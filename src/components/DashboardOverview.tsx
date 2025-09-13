@@ -106,9 +106,9 @@ const DashboardOverview = () => {
     }
 
     if (dataType === 'sleep') {
-      // Convert minutes to hours and minutes
-      const hours = Math.floor(value / 60);
-      const minutes = value % 60;
+      // Sleep data is already in hours, convert to hours and minutes
+      const hours = Math.floor(value);
+      const minutes = Math.round((value - hours) * 60);
       return `${hours}h ${minutes}m`;
     }
     
