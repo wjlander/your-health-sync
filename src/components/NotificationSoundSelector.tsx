@@ -12,37 +12,39 @@ import { useRef, useState } from "react";
 
 export const NotificationSoundSelector = () => {
   const { selectedSound, updateSound, availableSounds, uploadCustomSound, deleteCustomSound } = useNotificationSound();
-  const { scheduleNotification } = useNotifications();
+  const { scheduleNotification, cancelNotification } = useNotifications();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
   const testSound = async () => {
+    if (!scheduleNotification) return;
+    
+    // Cancel any existing test notifications first
     try {
-      // Schedule a test notification 2 seconds from now
-      const testDate = new Date();
-      testDate.setSeconds(testDate.getSeconds() + 2);
-      
-      const success = await scheduleNotification(
-        99999, // Unique test ID
-        'Test Notification',
-        `Testing sound: ${selectedSound.name}`,
-        testDate
-      );
-      
-      if (success) {
-        toast({
-          title: "Test Scheduled",
-          description: `Test notification with ${selectedSound.name} sound will play in 2 seconds`,
-        });
-      } else {
-        throw new Error('Failed to schedule test notification');
-      }
+      await cancelNotification(999999);
     } catch (error) {
-      console.error('Error testing sound:', error);
+      // Ignore errors when cancelling
+    }
+    
+    // Schedule a test notification for 2 seconds from now
+    const testDate = new Date(Date.now() + 2000);
+    const success = await scheduleNotification(
+      999999, // Use a unique ID for test notifications
+      "🔔 Sound Test",
+      `Testing "${selectedSound.name}" notification sound`,
+      testDate
+    );
+    
+    if (success) {
+      toast({
+        title: "Test Scheduled",
+        description: `Testing ${selectedSound.name} sound in 2 seconds...`,
+      });
+    } else {
       toast({
         title: "Test Failed",
-        description: "Could not schedule test notification. Please check permissions.",
+        description: "Could not schedule test notification",
         variant: "destructive",
       });
     }
@@ -210,7 +212,7 @@ export const NotificationSoundSelector = () => {
         </div>
         
         <p className="text-xs text-muted-foreground">
-          The test notification will appear in 1 second after clicking "Test Sound"
+          The test notification will appear in 2 seconds after clicking "Test Sound"
         </p>
       </CardContent>
     </Card>

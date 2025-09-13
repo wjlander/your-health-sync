@@ -23,6 +23,18 @@ export const useNotifications = () => {
     requestPermissions();
   }, []);
 
+  // Listen for sound changes
+  useEffect(() => {
+    const handleSoundChange = (event: CustomEvent) => {
+      console.log('Notification sound changed event received:', event.detail);
+    };
+
+    window.addEventListener('notification-sound-changed', handleSoundChange as EventListener);
+    return () => {
+      window.removeEventListener('notification-sound-changed', handleSoundChange as EventListener);
+    };
+  }, []);
+
   const scheduleNotification = async (
     id: number,
     title: string,
@@ -30,35 +42,48 @@ export const useNotifications = () => {
     scheduleAt: Date
   ) => {
     try {
-      // For custom sounds, use the URL, for built-in sounds use filename
-      // Default sound is 'default' which maps to the system default
-      let soundFile = selectedSound.filename;
-      if (selectedSound.isCustom && selectedSound.url) {
-        soundFile = selectedSound.url;
-      } else if (selectedSound.filename === 'default') {
-        soundFile = undefined; // Use system default
+      let soundConfig: string | undefined = undefined;
+      
+      // Handle different sound types
+      if (selectedSound.id === 'default') {
+        // Use system default notification sound
+        soundConfig = undefined;
+      } else if (selectedSound.isCustom) {
+        // For custom sounds, we need to use the filename without path
+        // Capacitor expects just the filename for custom sounds in the app bundle
+        soundConfig = selectedSound.filename;
+        console.log('Using custom sound filename:', soundConfig);
+      } else {
+        // For built-in sounds, use just the base filename without extension
+        soundConfig = selectedSound.filename.replace(/\.[^/.]+$/, "");
+        console.log('Using built-in sound:', soundConfig);
       }
       
-      console.log('Using notification sound:', soundFile, 'from selected sound:', selectedSound);
+      console.log('Scheduling notification with sound config:', soundConfig, 'Selected sound:', selectedSound);
+      
+      const notificationConfig: any = {
+        title,
+        body,
+        id,
+        schedule: { at: scheduleAt },
+        attachments: undefined,
+        actionTypeId: '',
+        extra: null
+      };
+
+      // Only add sound if we have a specific sound configured
+      if (soundConfig) {
+        notificationConfig.sound = soundConfig;
+      }
       
       await LocalNotifications.schedule({
-        notifications: [
-          {
-            title,
-            body,
-            id,
-            schedule: { at: scheduleAt },
-            sound: soundFile,
-            attachments: undefined,
-            actionTypeId: '',
-            extra: null
-          }
-        ]
+        notifications: [notificationConfig]
       });
-      console.log(`Notification scheduled: ${title} at ${scheduleAt} with sound: ${soundFile}`);
+      
+      console.log(`✅ Notification scheduled: "${title}" at ${scheduleAt.toLocaleString()} with sound: ${soundConfig || 'system default'}`);
       return true;
     } catch (error) {
-      console.error('Error scheduling notification:', error);
+      console.error('❌ Error scheduling notification:', error);
       return false;
     }
   };

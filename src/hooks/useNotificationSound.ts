@@ -30,27 +30,45 @@ export const useNotificationSound = () => {
 
   // Load saved preference and custom sounds on mount
   useEffect(() => {
-    loadCustomSounds();
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const soundId = JSON.parse(saved);
-      // Will be set after custom sounds are loaded
-      setTimeout(() => {
-        const allSounds = [...NOTIFICATION_SOUNDS, ...customSounds];
-        const sound = allSounds.find(s => s.id === soundId) || NOTIFICATION_SOUNDS[0];
-        setSelectedSound(sound);
-      }, 100);
+    const loadInitialData = async () => {
+      await loadCustomSounds();
+      
+      // Load saved preference after custom sounds are loaded
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const soundId = JSON.parse(saved);
+          const allSounds = [...NOTIFICATION_SOUNDS, ...customSounds];
+          const sound = allSounds.find(s => s.id === soundId) || NOTIFICATION_SOUNDS[0];
+          setSelectedSound(sound);
+          console.log('Loaded saved sound preference:', sound);
+        } catch (error) {
+          console.error('Error loading sound preference:', error);
+          setSelectedSound(NOTIFICATION_SOUNDS[0]);
+        }
+      }
+    };
+
+    if (user) {
+      loadInitialData();
     }
   }, [user]);
 
-  // Update selected sound when custom sounds change
+  // Update selected sound when custom sounds change and there's a saved preference
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const soundId = JSON.parse(saved);
-      const allSounds = [...NOTIFICATION_SOUNDS, ...customSounds];
-      const sound = allSounds.find(s => s.id === soundId) || NOTIFICATION_SOUNDS[0];
-      setSelectedSound(sound);
+    if (saved && customSounds.length > 0) {
+      try {
+        const soundId = JSON.parse(saved);
+        const allSounds = [...NOTIFICATION_SOUNDS, ...customSounds];
+        const sound = allSounds.find(s => s.id === soundId);
+        if (sound && sound.id !== selectedSound.id) {
+          setSelectedSound(sound);
+          console.log('Updated sound after custom sounds loaded:', sound);
+        }
+      } catch (error) {
+        console.error('Error updating sound preference:', error);
+      }
     }
   }, [customSounds]);
 
@@ -147,8 +165,12 @@ export const useNotificationSound = () => {
 
   // Save preference when changed
   const updateSound = (sound: NotificationSound) => {
+    console.log('Updating notification sound to:', sound);
     setSelectedSound(sound);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sound.id));
+    
+    // Force a re-render to ensure the change is picked up immediately
+    window.dispatchEvent(new CustomEvent('notification-sound-changed', { detail: sound }));
   };
 
   return {
