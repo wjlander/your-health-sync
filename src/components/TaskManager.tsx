@@ -354,7 +354,7 @@ export const TaskManager = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-0 flex-1 overflow-auto">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Task Management</h2>
         <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>

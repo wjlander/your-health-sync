@@ -31,7 +31,15 @@ export const useNotifications = () => {
   ) => {
     try {
       // For custom sounds, use the URL, for built-in sounds use filename
-      const soundFile = selectedSound.isCustom ? selectedSound.url : selectedSound.filename;
+      // Default sound is 'default' which maps to the system default
+      let soundFile = selectedSound.filename;
+      if (selectedSound.isCustom && selectedSound.url) {
+        soundFile = selectedSound.url;
+      } else if (selectedSound.filename === 'default') {
+        soundFile = undefined; // Use system default
+      }
+      
+      console.log('Using notification sound:', soundFile, 'from selected sound:', selectedSound);
       
       await LocalNotifications.schedule({
         notifications: [
@@ -47,7 +55,7 @@ export const useNotifications = () => {
           }
         ]
       });
-      console.log(`Notification scheduled: ${title} at ${scheduleAt}`);
+      console.log(`Notification scheduled: ${title} at ${scheduleAt} with sound: ${soundFile}`);
       return true;
     } catch (error) {
       console.error('Error scheduling notification:', error);

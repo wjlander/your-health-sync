@@ -385,25 +385,13 @@ const RoutinesManager = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-0 flex-1 overflow-auto">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Routines & Reminders</h2>
-          <p className="text-muted-foreground">Manage your Amazon Alexa routines and wellness reminders</p>
+          <p className="text-muted-foreground">Manage your wellness reminders</p>
         </div>
         <div className="flex space-x-2">
-          <Button
-            onClick={syncAmazonRoutines}
-            disabled={syncing}
-            variant="outline"
-          >
-            {syncing ? (
-              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
-            {syncing ? 'Syncing...' : 'Sync Alexa'}
-          </Button>
           <Button
             onClick={async () => {
               try {

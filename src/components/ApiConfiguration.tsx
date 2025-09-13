@@ -12,6 +12,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface ApiConfig {
   id: string;
+  user_id: string;
   service_name: string;
   client_id?: string;
   client_secret?: string;
@@ -20,7 +21,10 @@ interface ApiConfig {
   refresh_token?: string;
   redirect_url?: string;
   expires_at?: string;
+  is_connected?: boolean;
   is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const ApiConfiguration = () => {
@@ -194,7 +198,8 @@ const ApiConfiguration = () => {
     console.log('Saving config for user:', targetUserId, 'service:', serviceName);
     setSaving(serviceName);
     try {
-      // For Alexa, look for existing config in the shared user account
+      // Always check for existing config using the current user's ID for individual services
+      // For Alexa, check the shared user account
       let existingConfig;
       if (serviceName === 'alexa') {
         const { data: sharedConfigs } = await supabase
@@ -204,7 +209,8 @@ const ApiConfiguration = () => {
           .eq('service_name', 'alexa');
         existingConfig = sharedConfigs?.[0];
       } else {
-        existingConfig = configs.find(c => c.service_name === serviceName);
+        // For individual services (Google, Fitbit), each user has their own config
+        existingConfig = configs.find(c => c.service_name === serviceName && c.user_id === user.id);
       }
 
       if (existingConfig) {

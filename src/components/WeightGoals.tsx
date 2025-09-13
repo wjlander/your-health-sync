@@ -400,7 +400,7 @@ export function WeightGoals() {
   const weightUnit = getWeightUnit(userUnits);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-0 flex-1 overflow-auto">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">Weight Goals</h2>
         {!activeGoal && (

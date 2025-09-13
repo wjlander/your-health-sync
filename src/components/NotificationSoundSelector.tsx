@@ -1,4 +1,5 @@
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useNotifications } from "@/hooks/useNotifications";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -11,40 +12,37 @@ import { useRef, useState } from "react";
 
 export const NotificationSoundSelector = () => {
   const { selectedSound, updateSound, availableSounds, uploadCustomSound, deleteCustomSound } = useNotificationSound();
+  const { scheduleNotification } = useNotifications();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
   const testSound = async () => {
     try {
-      // For custom sounds, we need to handle them differently on mobile
-      const soundFile = selectedSound.isCustom ? selectedSound.url : selectedSound.filename;
+      // Schedule a test notification 2 seconds from now
+      const testDate = new Date();
+      testDate.setSeconds(testDate.getSeconds() + 2);
       
-      // Schedule a test notification with the selected sound
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title: "Test Notification",
-            body: "This is how your notifications will sound",
-            id: 99999, // Use a high ID for test notifications
-            schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
-            sound: soundFile,
-            attachments: undefined,
-            actionTypeId: '',
-            extra: null
-          }
-        ]
-      });
+      const success = await scheduleNotification(
+        99999, // Unique test ID
+        'Test Notification',
+        `Testing sound: ${selectedSound.name}`,
+        testDate
+      );
       
-      toast({
-        title: "Test notification scheduled",
-        description: "You should hear the notification sound in 1 second",
-      });
+      if (success) {
+        toast({
+          title: "Test Scheduled",
+          description: `Test notification with ${selectedSound.name} sound will play in 2 seconds`,
+        });
+      } else {
+        throw new Error('Failed to schedule test notification');
+      }
     } catch (error) {
-      console.error('Error testing notification sound:', error);
+      console.error('Error testing sound:', error);
       toast({
-        title: "Error",
-        description: "Failed to test notification sound",
+        title: "Test Failed",
+        description: "Could not schedule test notification. Please check permissions.",
         variant: "destructive",
       });
     }
