@@ -11,9 +11,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarIcon, Plus, MessageCircle, Clock, User, Filter } from 'lucide-react';
 import { format } from 'date-fns';
+import { TaskTemplateManager } from './TaskTemplateManager';
 
 interface Task {
   id: string;
@@ -43,6 +45,16 @@ interface TaskComment {
   user_profile?: { full_name?: string; email?: string };
 }
 
+interface TaskTemplate {
+  id: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  project?: string;
+  tags?: string[];
+  created_by: string;
+}
+
 export const TaskManager = () => {
   const { user, session } = useAuth();
   const { toast } = useToast();
@@ -53,10 +65,19 @@ export const TaskManager = () => {
   const [filter, setFilter] = useState<'all' | 'assigned' | 'created'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [newTask, setNewTask] = useState({
+  const [newTask, setNewTask] = useState<{
+    title: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    due_date: string;
+    assigned_to: string;
+    project: string;
+    tags: string;
+    add_to_calendar: boolean;
+  }>({
     title: '',
     description: '',
-    priority: 'medium' as const,
+    priority: 'medium',
     due_date: '',
     assigned_to: '',
     project: '',
@@ -296,6 +317,24 @@ export const TaskManager = () => {
     }
   };
 
+  const createTaskFromTemplate = (template: TaskTemplate) => {
+    setNewTask({
+      title: template.title,
+      description: template.description || '',
+      priority: template.priority as 'low' | 'medium' | 'high' | 'urgent',
+      due_date: '',
+      assigned_to: '',
+      project: template.project || '',
+      tags: template.tags?.join(', ') || '',
+      add_to_calendar: false
+    });
+    setShowNewTaskDialog(true);
+    toast({
+      title: 'Template Loaded',
+      description: 'Template has been loaded. You can modify the details before creating the task.',
+    });
+  };
+
   const filteredTasks = tasks.filter(task => {
     if (filter === 'assigned' && task.assigned_to !== user?.id) return false;
     if (filter === 'created' && task.created_by !== user?.id) return false;
@@ -434,7 +473,14 @@ export const TaskManager = () => {
         </Dialog>
       </div>
 
-      {/* Filters */}
+      <Tabs defaultValue="tasks" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="tasks" className="space-y-4">
+          {/* Filters */}
       <div className="flex space-x-4">
         <Select value={filter} onValueChange={(value: any) => setFilter(value)}>
           <SelectTrigger className="w-48">
@@ -606,6 +652,12 @@ export const TaskManager = () => {
           </div>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+        
+        <TabsContent value="templates">
+          <TaskTemplateManager onCreateFromTemplate={createTaskFromTemplate} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

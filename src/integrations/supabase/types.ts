@@ -247,6 +247,45 @@ export type Database = {
           },
         ]
       }
+      task_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          priority: string
+          project: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: string
+          project?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: string
+          project?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_to: string | null
