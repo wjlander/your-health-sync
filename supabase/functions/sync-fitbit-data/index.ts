@@ -181,12 +181,11 @@ async function syncSingleUser(authHeader: string) {
 async function refreshFitbitToken(supabase: any, userId: string) {
   console.log('Refreshing Fitbit token for user:', userId)
   
-  // Get refresh token from centralized config but use secrets for client credentials
-  // Use will@w-j-lander.uk's Fitbit config for refresh token
+  // Get refresh token for the specific user
   const { data: config, error: configError } = await supabase
     .from('api_configurations')
     .select('refresh_token')
-    .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
+    .eq('user_id', userId)
     .eq('service_name', 'fitbit')
     .single()
     
@@ -226,7 +225,7 @@ async function refreshFitbitToken(supabase: any, userId: string) {
   const tokenData = await refreshResponse.json()
   console.log('Token refresh successful')
   
-  // Update the configuration with new tokens
+  // Update the configuration with new tokens for the specific user
   const { error: updateError } = await supabase
     .from('api_configurations')
     .update({
@@ -235,7 +234,7 @@ async function refreshFitbitToken(supabase: any, userId: string) {
       expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd')
+    .eq('user_id', userId)
     
   if (updateError) {
     console.log('Failed to update tokens:', updateError)
