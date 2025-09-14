@@ -12,9 +12,6 @@ const config: CapacitorConfig = {
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]
-    },
-    FirebaseMessaging: {
-      presentationOptions: ["badge", "sound", "alert"]
     }
   }
 };

@@ -1,5 +1,4 @@
 import { PushNotifications } from '@capacitor/push-notifications';
-import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { useEffect, useState } from 'react';
 
 export const usePushNotifications = () => {
@@ -61,18 +60,14 @@ export const usePushNotifications = () => {
     }
 
     try {
-      // Get the FCM token
-      const { token } = await FirebaseMessaging.getToken();
-      
-      console.log('Scheduling push notification:', { title, body, scheduleAt, token });
+      console.log('Scheduling push notification:', { title, body, scheduleAt });
       
       // Here you would typically call your backend service to schedule the push notification
-      // For now, we'll log the details
-      console.log('✅ Push notification scheduled (via server):', {
+      // For now, we'll log the details and show a toast
+      console.log('✅ Push notification scheduled (needs server implementation):', {
         title,
         body,
         scheduleAt: scheduleAt.toISOString(),
-        token,
         data
       });
       
