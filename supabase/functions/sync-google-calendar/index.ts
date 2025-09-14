@@ -75,7 +75,7 @@ serve(async (req) => {
         selectedCalendarId = calendarSetting.setting_value.replace(/"/g, '');
       } else if (calendarSetting.setting_value && typeof calendarSetting.setting_value === 'object') {
         const settingObj = calendarSetting.setting_value as { calendar_id?: string };
-        selectedCalendarId = settingObj.calendar_id || 'primary';
+        selectedCalendarId = (settingObj.calendar_id || 'primary').replace(/"/g, ''); // Clean up any extra quotes
       }
     }
     console.log('Using shared calendar ID:', selectedCalendarId)

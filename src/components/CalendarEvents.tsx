@@ -67,10 +67,10 @@ const CalendarEvents = () => {
         let calendarName: string = '';
         
         if (typeof data.setting_value === 'string') {
-          calendarId = data.setting_value;
+          calendarId = data.setting_value.replace(/"/g, ''); // Clean up any extra quotes
         } else if (data.setting_value && typeof data.setting_value === 'object') {
           const settingObj = data.setting_value as { calendar_id?: string; calendar_name?: string };
-          calendarId = settingObj.calendar_id || '';
+          calendarId = (settingObj.calendar_id || '').replace(/"/g, ''); // Clean up any extra quotes
           calendarName = settingObj.calendar_name || '';
         } else {
           return;
