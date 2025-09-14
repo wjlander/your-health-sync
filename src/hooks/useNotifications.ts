@@ -11,10 +11,23 @@ export const useNotifications = () => {
     // Request notification permissions on app start
     const requestPermissions = async () => {
       try {
-        const result = await LocalNotifications.requestPermissions();
-        console.log('Notification permissions:', result);
+        const permissionStatus = await LocalNotifications.checkPermissions();
+        console.log('Current notification permissions:', permissionStatus);
+        
+        if (permissionStatus.display !== 'granted') {
+          const result = await LocalNotifications.requestPermissions();
+          console.log('Requested notification permissions:', result);
+          
+          if (result.display === 'granted') {
+            console.log('✅ Notification permissions granted');
+          } else {
+            console.warn('❌ Notification permissions denied');
+          }
+        } else {
+          console.log('✅ Notification permissions already granted');
+        }
       } catch (error) {
-        console.error('Error requesting notification permissions:', error);
+        console.error('❌ Error with notification permissions:', error);
       }
     };
 
@@ -29,12 +42,27 @@ export const useNotifications = () => {
     scheduleAt: Date
   ) => {
     try {
+      // Check permissions first
+      const permissionStatus = await LocalNotifications.checkPermissions();
+      if (permissionStatus.display !== 'granted') {
+        console.error('❌ Notification permissions not granted');
+        return false;
+      }
+
+      // Ensure the scheduled time is in the future
+      const now = new Date();
+      if (scheduleAt.getTime() <= now.getTime()) {
+        console.warn('⚠️ Scheduled time is in the past, scheduling for tomorrow');
+        scheduleAt.setDate(scheduleAt.getDate() + 1);
+      }
+
       await LocalNotifications.schedule({
         notifications: [{
+          id,
           title,
           body,
-          id,
           schedule: { at: scheduleAt },
+          sound: 'beep.wav',
           attachments: undefined,
           actionTypeId: '',
           extra: null
@@ -42,9 +70,21 @@ export const useNotifications = () => {
       });
       
       console.log(`✅ Notification scheduled: "${title}" at ${scheduleAt.toLocaleString()}`);
+      console.log(`📱 Notification ID: ${id}`);
+      
+      // Verify the notification was scheduled
+      const pending = await LocalNotifications.getPending();
+      const scheduledNotification = pending.notifications.find(n => n.id === id);
+      if (scheduledNotification) {
+        console.log('✅ Notification confirmed in pending list');
+      } else {
+        console.warn('⚠️ Notification not found in pending list');
+      }
+      
       return true;
     } catch (error) {
       console.error('❌ Error scheduling notification:', error);
+      console.error('Error details:', JSON.stringify(error));
       return false;
     }
   };
@@ -68,7 +108,10 @@ export const useNotifications = () => {
           scheduleDate.setDate(scheduleDate.getDate() + 1);
         }
 
-        const notificationId = parseInt(`${routine.id.replace(/-/g, '').substring(0, 8)}${hours}${minutes}`);
+        // Create a more reliable notification ID
+        const routineIdHash = routine.id.replace(/-/g, '').substring(0, 6);
+        const timeHash = `${hours.toString().padStart(2, '0')}${minutes.toString().padStart(2, '0')}`;
+        const notificationId = parseInt(`${routineIdHash}${timeHash}`) % 2147483647; // Ensure it fits in int32
         
         await scheduleNotification(
           notificationId,
