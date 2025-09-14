@@ -1,13 +1,11 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useEffect } from 'react';
-import { useNotificationSound } from './useNotificationSound';
 
 interface NotificationPermissions {
   display: 'granted' | 'denied' | 'prompt';
 }
 
 export const useNotifications = () => {
-  const { selectedSound } = useNotificationSound();
   
   useEffect(() => {
     // Request notification permissions on app start
@@ -23,17 +21,6 @@ export const useNotifications = () => {
     requestPermissions();
   }, []);
 
-  // Listen for sound changes
-  useEffect(() => {
-    const handleSoundChange = (event: CustomEvent) => {
-      console.log('Notification sound changed event received:', event.detail);
-    };
-
-    window.addEventListener('notification-sound-changed', handleSoundChange as EventListener);
-    return () => {
-      window.removeEventListener('notification-sound-changed', handleSoundChange as EventListener);
-    };
-  }, []);
 
   const scheduleNotification = async (
     id: number,
@@ -42,46 +29,19 @@ export const useNotifications = () => {
     scheduleAt: Date
   ) => {
     try {
-      let soundConfig: string | undefined = undefined;
-      
-      // Handle different sound types for Android compatibility
-      if (selectedSound.id === 'default') {
-        // Use system default notification sound
-        soundConfig = undefined;
-      } else if (selectedSound.isCustom) {
-        // For custom sounds from Supabase, disable for now as they don't work in Android
-        // Use default sound instead
-        console.warn('Custom sounds not supported in Android app, using default');
-        soundConfig = undefined;
-      } else {
-        // For built-in sounds, use just the filename without extension
-        // These are now bundled with the app in public/sounds/
-        soundConfig = selectedSound.filename;
-        console.log('Using built-in sound:', soundConfig);
-      }
-      
-      console.log('Scheduling notification with sound config:', soundConfig, 'Selected sound:', selectedSound);
-      
-      const notificationConfig: any = {
-        title,
-        body,
-        id,
-        schedule: { at: scheduleAt },
-        attachments: undefined,
-        actionTypeId: '',
-        extra: null
-      };
-
-      // Only add sound if we have a specific sound configured
-      if (soundConfig) {
-        notificationConfig.sound = soundConfig;
-      }
-      
       await LocalNotifications.schedule({
-        notifications: [notificationConfig]
+        notifications: [{
+          title,
+          body,
+          id,
+          schedule: { at: scheduleAt },
+          attachments: undefined,
+          actionTypeId: '',
+          extra: null
+        }]
       });
       
-      console.log(`✅ Notification scheduled: "${title}" at ${scheduleAt.toLocaleString()} with sound: ${soundConfig || 'system default'}`);
+      console.log(`✅ Notification scheduled: "${title}" at ${scheduleAt.toLocaleString()}`);
       return true;
     } catch (error) {
       console.error('❌ Error scheduling notification:', error);

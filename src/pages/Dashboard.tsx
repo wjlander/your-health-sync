@@ -10,7 +10,6 @@ import HealthMetrics from '@/components/HealthMetrics';
 import CalendarEvents from '@/components/CalendarEvents';
 import { TaskManager } from '@/components/TaskManager';
 import RoutinesManager from '@/components/RoutinesManager';
-import { NotificationSoundSelector } from '@/components/NotificationSoundSelector';
 import ApiConfiguration from '@/components/ApiConfiguration';
 import UserCreator from '@/components/UserCreator';
 import { WeightGoals } from '@/components/WeightGoals';
@@ -178,7 +177,6 @@ const Dashboard = () => {
 
           <TabsContent value="settings">
             <div className="space-y-6">
-              <NotificationSoundSelector />
               <UnitsPreference onUnitsChange={(units) => {
                 // Units changed, this could trigger other components to refresh
                 console.log('Units changed to:', units);
