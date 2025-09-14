@@ -115,7 +115,11 @@ export const usePushNotifications = () => {
     title: string,
     body: string,
     scheduleAt: Date,
-    data?: Record<string, any>
+    data?: Record<string, any>,
+    options?: {
+      includeIFTTT?: boolean;
+      iftttWebhookUrl?: string;
+    }
   ) => {
     if (!isInitialized) {
       console.warn('Push notifications not initialized');
@@ -136,7 +140,9 @@ export const usePushNotifications = () => {
           body,
           data,
           scheduleFor: scheduleAt.toISOString(),
-          immediate: false
+          immediate: false,
+          includeIFTTT: options?.includeIFTTT || false,
+          iftttWebhookUrl: options?.iftttWebhookUrl
         }
       });
 
@@ -198,9 +204,52 @@ export const usePushNotifications = () => {
     }
   };
 
+  const sendImmediateNotification = async (
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+    options?: {
+      includeIFTTT?: boolean;
+      iftttWebhookUrl?: string;
+    }
+  ) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          title,
+          body,
+          data,
+          immediate: true,
+          includeIFTTT: options?.includeIFTTT || false,
+          iftttWebhookUrl: options?.iftttWebhookUrl
+        }
+      });
+
+      if (error) {
+        console.error('Error sending immediate notification:', error);
+        toast({
+          title: "Notification Failed",
+          description: "Failed to send notification.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      toast({
+        title: "Notification Sent",
+        description: "Notification sent successfully!",
+      });
+      return true;
+    } catch (error) {
+      console.error('Error sending immediate notification:', error);
+      return false;
+    }
+  };
+
   return {
     isInitialized,
     scheduleNotificationViaServer,
+    sendImmediateNotification,
     scheduleRoutineReminders
   };
 };

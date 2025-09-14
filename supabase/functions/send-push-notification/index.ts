@@ -48,7 +48,8 @@ serve(async (req) => {
       });
     }
 
-    const { title, body, data, scheduleFor, immediate = false } = await req.json();
+    const { title, body, data, scheduleFor, immediate = false, includeIFTTT = false, iftttWebhookUrl } = await req.json();
+    console.log('Request body:', { title, body, data, scheduleFor, immediate, includeIFTTT });
 
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'Title and body are required' }), {
@@ -116,10 +117,18 @@ serve(async (req) => {
         }
       }
 
+      // Also trigger IFTTT webhook if requested
+      let iftttResult = null;
+      if (includeIFTTT) {
+        console.log('Triggering IFTTT webhook...');
+        iftttResult = await triggerIFTTTWebhook(user.id, title, body, data, iftttWebhookUrl, supabase);
+      }
+
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Immediate notification sent',
-        results: results
+        results: results,
+        iftttResult
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -132,15 +141,21 @@ serve(async (req) => {
         });
       }
 
+      const notificationData = {
+        user_id: user.id,
+        title: title,
+        body: body,
+        data: {
+          ...(data || {}),
+          includeIFTTT,
+          iftttWebhookUrl: includeIFTTT ? iftttWebhookUrl : undefined
+        },
+        scheduled_for: scheduleFor,
+      };
+
       const { data: scheduledData, error: scheduleError } = await supabase
         .from('scheduled_notifications')
-        .insert({
-          user_id: user.id,
-          title: title,
-          body: body,
-          data: data || {},
-          scheduled_for: scheduleFor,
-        })
+        .insert(notificationData)
         .select()
         .single();
 
@@ -172,3 +187,69 @@ serve(async (req) => {
     });
   }
 });
+
+// Function to trigger IFTTT webhook
+async function triggerIFTTTWebhook(
+  userId: string, 
+  title: string, 
+  body: string, 
+  data: any, 
+  customWebhookUrl?: string,
+  supabase?: any
+) {
+  try {
+    let webhookUrl = customWebhookUrl;
+    
+    // If no custom webhook URL provided, try to get it from user's API configurations
+    if (!webhookUrl && supabase) {
+      console.log('Looking up IFTTT webhook URL for user:', userId);
+      const { data: iftttConfig } = await supabase
+        .from('api_configurations')
+        .select('api_key')
+        .eq('user_id', userId)
+        .eq('service_name', 'ifttt')
+        .single();
+      
+      if (iftttConfig?.api_key) {
+        webhookUrl = iftttConfig.api_key; // Store webhook URL in api_key field
+      }
+    }
+
+    if (!webhookUrl) {
+      console.log('No IFTTT webhook URL configured for user');
+      return { success: false, error: 'No IFTTT webhook URL configured' };
+    }
+
+    console.log('Triggering IFTTT webhook:', webhookUrl.substring(0, 50) + '...');
+
+    const iftttPayload = {
+      value1: title,
+      value2: body,
+      value3: JSON.stringify(data || {}),
+      timestamp: new Date().toISOString(),
+      user_id: userId
+    };
+
+    const iftttResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(iftttPayload)
+    });
+
+    console.log('IFTTT Response status:', iftttResponse.status);
+
+    if (iftttResponse.ok) {
+      return { success: true, status: iftttResponse.status };
+    } else {
+      const errorText = await iftttResponse.text();
+      console.error('IFTTT webhook failed:', errorText);
+      return { success: false, error: errorText };
+    }
+
+  } catch (error) {
+    console.error('Error triggering IFTTT webhook:', error);
+    return { success: false, error: error.message };
+  }
+}

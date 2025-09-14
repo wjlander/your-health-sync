@@ -165,8 +165,74 @@ serve(async (req) => {
             id: notification.id,
             status: 'failed',
             errors: errors
-          });
-        }
+  });
+}
+
+// Function to trigger IFTTT webhook (same as in send-push-notification)
+async function triggerIFTTTWebhook(
+  userId: string, 
+  title: string, 
+  body: string, 
+  data: any, 
+  customWebhookUrl?: string,
+  supabase?: any
+) {
+  try {
+    let webhookUrl = customWebhookUrl;
+    
+    // If no custom webhook URL provided, try to get it from user's API configurations
+    if (!webhookUrl && supabase) {
+      console.log('Looking up IFTTT webhook URL for user:', userId);
+      const { data: iftttConfig } = await supabase
+        .from('api_configurations')
+        .select('api_key')
+        .eq('user_id', userId)
+        .eq('service_name', 'ifttt')
+        .single();
+      
+      if (iftttConfig?.api_key) {
+        webhookUrl = iftttConfig.api_key; // Store webhook URL in api_key field
+      }
+    }
+
+    if (!webhookUrl) {
+      console.log('No IFTTT webhook URL configured for user');
+      return { success: false, error: 'No IFTTT webhook URL configured' };
+    }
+
+    console.log('Triggering IFTTT webhook:', webhookUrl.substring(0, 50) + '...');
+
+    const iftttPayload = {
+      value1: title,
+      value2: body,
+      value3: JSON.stringify(data || {}),
+      timestamp: new Date().toISOString(),
+      user_id: userId
+    };
+
+    const iftttResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(iftttPayload)
+    });
+
+    console.log('IFTTT Response status:', iftttResponse.status);
+
+    if (iftttResponse.ok) {
+      return { success: true, status: iftttResponse.status };
+    } else {
+      const errorText = await iftttResponse.text();
+      console.error('IFTTT webhook failed:', errorText);
+      return { success: false, error: errorText };
+    }
+
+  } catch (error) {
+    console.error('Error triggering IFTTT webhook:', error);
+    return { success: false, error: error.message };
+  }
+}
 
       } catch (error) {
         console.error(`Error processing notification ${notification.id}:`, error);
