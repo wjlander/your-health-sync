@@ -215,6 +215,33 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_calendar_settings: {
+        Row: {
+          created_at: string
+          id: string
+          managed_by: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          managed_by: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          managed_by?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       task_comments: {
         Row: {
           comment: string
@@ -431,7 +458,54 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      master_google_config: {
+        Row: {
+          access_token: string | null
+          api_key: string | null
+          client_id: string | null
+          client_secret: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          is_active: boolean | null
+          redirect_url: string | null
+          refresh_token: string | null
+          service_name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          api_key?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          redirect_url?: string | null
+          refresh_token?: string | null
+          service_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          api_key?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          redirect_url?: string | null
+          refresh_token?: string | null
+          service_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
