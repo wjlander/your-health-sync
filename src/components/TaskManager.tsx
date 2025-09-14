@@ -301,6 +301,38 @@ export const TaskManager = () => {
         .eq('id', task.id);
 
       if (error) throw error;
+
+      // If task has an associated calendar event and the task details changed, update calendar event
+      if (task.calendar_event_id && (updatedData.title || updatedData.description || updatedData.due_date)) {
+        try {
+          // Get the calendar event to find the event_id
+          const { data: calendarEvent } = await supabase
+            .from('calendar_events')
+            .select('event_id')
+            .eq('id', task.calendar_event_id)
+            .single();
+
+          if (calendarEvent?.event_id) {
+            const eventData = {
+              title: updatedData.title || task.title,
+              description: updatedData.description || task.description || '',
+              startTime: updatedData.due_date || task.due_date || new Date().toISOString(),
+              endTime: updatedData.due_date ? 
+                new Date(new Date(updatedData.due_date).getTime() + 60 * 60 * 1000).toISOString() : 
+                task.due_date ? 
+                  new Date(new Date(task.due_date).getTime() + 60 * 60 * 1000).toISOString() : 
+                  new Date(Date.now() + 60 * 60 * 1000).toISOString()
+            };
+
+            await supabase.functions.invoke('update-calendar-event', {
+              body: { eventId: calendarEvent.event_id, ...eventData }
+            });
+          }
+        } catch (calendarError) {
+          console.error('Failed to update calendar event:', calendarError);
+          // Don't fail the task update if calendar update fails
+        }
+      }
       
       toast({
         title: 'Success',
@@ -322,6 +354,27 @@ export const TaskManager = () => {
     if (!deleteTask) return;
 
     try {
+      // If task has an associated calendar event, delete it first
+      if (deleteTask.calendar_event_id) {
+        try {
+          // Get the calendar event to find the event_id
+          const { data: calendarEvent } = await supabase
+            .from('calendar_events')
+            .select('event_id')
+            .eq('id', deleteTask.calendar_event_id)
+            .single();
+
+          if (calendarEvent?.event_id) {
+            await supabase.functions.invoke('delete-calendar-event', {
+              body: { eventId: calendarEvent.event_id }
+            });
+          }
+        } catch (calendarError) {
+          console.error('Failed to delete calendar event:', calendarError);
+          // Don't fail the task deletion if calendar deletion fails
+        }
+      }
+
       const { error } = await supabase
         .from('tasks')
         .delete()

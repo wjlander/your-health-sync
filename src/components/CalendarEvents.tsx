@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Calendar, Clock, Settings, RefreshCw, Plus } from 'lucide-react';
+import { Calendar, Clock, Settings, RefreshCw, Plus, Edit, Trash2 } from 'lucide-react';
 import { AddEventForm } from './AddEventForm';
+import { EditCalendarEventForm } from './EditCalendarEventForm';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface CalendarEvent {
   id: string;
@@ -37,6 +39,9 @@ const CalendarEvents = () => {
   const [showAddEventDialog, setShowAddEventDialog] = useState(false);
   const [selectedCalendarName, setSelectedCalendarName] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [showEditEventDialog, setShowEditEventDialog] = useState(false);
+  const [deleteEvent, setDeleteEvent] = useState<CalendarEvent | null>(null);
 
   // Check if current user is the calendar manager (will@w-j-lander.uk)
   const isCalendarManager = user?.id === 'b7318f45-ae52-49f4-9db5-1662096679dd';
@@ -120,6 +125,60 @@ const CalendarEvents = () => {
         description: 'Failed to add event to calendar.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleEditEvent = async (eventId: string, eventData: any) => {
+    try {
+      const response = await supabase.functions.invoke('update-calendar-event', {
+        body: { eventId, ...eventData }
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: 'Event Updated',
+        description: 'Calendar event has been updated successfully.',
+      });
+      
+      setShowEditEventDialog(false);
+      setEditingEvent(null);
+      fetchEvents(); // Refresh events
+    } catch (error: any) {
+      console.error('Error updating event:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update calendar event.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!deleteEvent?.event_id) return;
+
+    try {
+      const response = await supabase.functions.invoke('delete-calendar-event', {
+        body: { eventId: deleteEvent.event_id }
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: 'Event Deleted',
+        description: 'Calendar event has been deleted successfully.',
+      });
+      
+      fetchEvents(); // Refresh events
+    } catch (error: any) {
+      console.error('Error deleting event:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete calendar event.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleteEvent(null);
     }
   };
 
@@ -443,6 +502,43 @@ const CalendarEvents = () => {
         </div>
       </div>
 
+      {/* Edit Event Dialog */}
+      <Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Calendar Event</DialogTitle>
+          </DialogHeader>
+          {editingEvent && (
+            <EditCalendarEventForm 
+              event={editingEvent}
+              onSave={handleEditEvent} 
+              onCancel={() => {
+                setShowEditEventDialog(false);
+                setEditingEvent(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Event Dialog */}
+      <AlertDialog open={!!deleteEvent} onOpenChange={(open) => !open && setDeleteEvent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Calendar Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteEvent?.title}"? This action cannot be undone and will also remove the event from Google Calendar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Calendar Status Section */}
       <Card className="bg-muted/50">
         <CardHeader className="pb-3">
@@ -539,6 +635,29 @@ const CalendarEvents = () => {
                             <Badge className="bg-health-success">Health Related</Badge>
                           )}
                           <Badge variant="outline">Upcoming</Badge>
+                          {event.event_id && (
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingEvent(event);
+                                  setShowEditEventDialog(true);
+                                }}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setDeleteEvent(event)}
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -579,6 +698,29 @@ const CalendarEvents = () => {
                             <Badge variant="outline" className="text-health-success">Health Related</Badge>
                           )}
                           <Badge variant="secondary">Past</Badge>
+                          {event.event_id && (
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingEvent(event);
+                                  setShowEditEventDialog(true);
+                                }}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setDeleteEvent(event)}
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
