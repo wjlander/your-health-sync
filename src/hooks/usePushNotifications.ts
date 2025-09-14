@@ -1,8 +1,12 @@
 import { PushNotifications } from '@capacitor/push-notifications';
 import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 export const usePushNotifications = () => {
   const [isInitialized, setIsInitialized] = useState(false);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const initializePushNotifications = async () => {
@@ -18,21 +22,37 @@ export const usePushNotifications = () => {
           setIsInitialized(true);
         } else {
           console.warn('❌ Push notification permission denied');
+          toast({
+            title: "Notification Permission Required",
+            description: "Please enable notifications to receive routine reminders.",
+            variant: "destructive",
+          });
         }
 
         // On success, we should be able to receive notifications
         PushNotifications.addListener('registration', (token) => {
           console.log('Push registration success, token: ' + token.value);
+          setPushToken(token.value);
+          registerTokenWithBackend(token.value);
         });
 
         // Some issue with our setup and push will not work
         PushNotifications.addListener('registrationError', (error) => {
           console.error('Error on registration: ' + JSON.stringify(error));
+          toast({
+            title: "Registration Error",
+            description: "Failed to register for push notifications.",
+            variant: "destructive",
+          });
         });
 
         // Show us the notification payload if the app is open on our device
         PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('Push received: ' + JSON.stringify(notification));
+          toast({
+            title: notification.title || "Notification",
+            description: notification.body || "You have a new notification.",
+          });
         });
 
         // Method called when tapping on a notification
@@ -42,11 +62,54 @@ export const usePushNotifications = () => {
 
       } catch (error) {
         console.error('Error initializing push notifications:', error);
+        toast({
+          title: "Notification Setup Error",
+          description: "Failed to initialize push notifications.",
+          variant: "destructive",
+        });
       }
     };
 
     initializePushNotifications();
-  }, []);
+  }, [toast]);
+
+  // Register FCM token with backend
+  const registerTokenWithBackend = async (token: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No session found, skipping token registration');
+        return;
+      }
+
+      const deviceInfo = {
+        platform: 'android', // Could detect platform dynamically
+        timestamp: new Date().toISOString()
+      };
+
+      const { error } = await supabase.functions.invoke('register-fcm-token', {
+        body: { token, deviceInfo }
+      });
+
+      if (error) {
+        console.error('Error registering FCM token:', error);
+        toast({
+          title: "Token Registration Failed",
+          description: "Failed to register device for notifications.",
+          variant: "destructive",
+        });
+      } else {
+        console.log('✅ FCM token registered successfully');
+        toast({
+          title: "Notifications Ready",
+          description: "Device registered for push notifications.",
+        });
+      }
+    } catch (error) {
+      console.error('Error in registerTokenWithBackend:', error);
+    }
+  };
 
   const scheduleNotificationViaServer = async (
     title: string,
@@ -56,24 +119,50 @@ export const usePushNotifications = () => {
   ) => {
     if (!isInitialized) {
       console.warn('Push notifications not initialized');
+      toast({
+        title: "Notifications Not Available",
+        description: "Please enable push notifications first.",
+        variant: "destructive",
+      });
       return false;
     }
 
     try {
       console.log('Scheduling push notification:', { title, body, scheduleAt });
       
-      // Here you would typically call your backend service to schedule the push notification
-      // For now, we'll log the details and show a toast
-      console.log('✅ Push notification scheduled (needs server implementation):', {
-        title,
-        body,
-        scheduleAt: scheduleAt.toISOString(),
-        data
+      const { error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          title,
+          body,
+          data,
+          scheduleFor: scheduleAt.toISOString(),
+          immediate: false
+        }
       });
-      
-      return true;
+
+      if (error) {
+        console.error('Error scheduling notification:', error);
+        toast({
+          title: "Scheduling Failed",
+          description: "Failed to schedule notification.",
+          variant: "destructive",
+        });
+        return false;
+      } else {
+        console.log('✅ Push notification scheduled successfully');
+        toast({
+          title: "Reminder Scheduled",
+          description: `Notification scheduled for ${scheduleAt.toLocaleString()}`,
+        });
+        return true;
+      }
     } catch (error) {
       console.error('❌ Error scheduling push notification:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while scheduling the notification.",
+        variant: "destructive",
+      });
       return false;
     }
   };

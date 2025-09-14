@@ -101,6 +101,33 @@ export type Database = {
         }
         Relationships: []
       }
+      fcm_tokens: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       health_data: {
         Row: {
           created_at: string | null
@@ -211,6 +238,45 @@ export type Database = {
           start_date?: string | null
           title?: string
           updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scheduled_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json | null
+          error_message: string | null
+          id: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          data?: Json | null
+          error_message?: string | null
+          id?: string
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json | null
+          error_message?: string | null
+          id?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          title?: string
           user_id?: string
         }
         Relationships: []
