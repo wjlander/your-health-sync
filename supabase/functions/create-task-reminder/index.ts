@@ -144,15 +144,24 @@ serve(async (req) => {
 
     console.log('Creating calendar event:', calendarEvent);
 
-    // Get the shared calendar ID from settings
+    // Fetch the target calendar ID from shared settings
     const { data: calendarSettings } = await supabase
       .from('shared_calendar_settings')
       .select('setting_value')
       .eq('setting_key', 'selected_calendar_id')
       .single();
     
-    const calendarId = calendarSettings?.setting_value || 'primary';
-    console.log('Using calendar ID:', calendarId);
+    let calendarId = 'primary';
+    if (calendarSettings?.setting_value) {
+      // Handle both old string format and new object format
+      if (typeof calendarSettings.setting_value === 'string') {
+        calendarId = calendarSettings.setting_value;
+      } else if (calendarSettings.setting_value && typeof calendarSettings.setting_value === 'object') {
+        const settingObj = calendarSettings.setting_value as { calendar_id?: string };
+        calendarId = settingObj.calendar_id || 'primary';
+      }
+    }
+    console.log('Using calendar ID for task reminder:', calendarId);
 
     const calendarResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
       method: 'POST',

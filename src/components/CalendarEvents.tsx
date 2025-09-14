@@ -62,9 +62,24 @@ const CalendarEvents = () => {
       }
 
       if (data?.setting_value) {
-        setSelectedCalendarId(data.setting_value as string);
+        // Handle both old string format and new object format
+        let calendarId: string;
+        let calendarName: string = '';
+        
+        if (typeof data.setting_value === 'string') {
+          calendarId = data.setting_value;
+        } else if (data.setting_value && typeof data.setting_value === 'object') {
+          const settingObj = data.setting_value as { calendar_id?: string; calendar_name?: string };
+          calendarId = settingObj.calendar_id || '';
+          calendarName = settingObj.calendar_name || '';
+        } else {
+          return;
+        }
+        
+        setSelectedCalendarId(calendarId);
+        setSelectedCalendarName(calendarName);
         setLastSyncTime(data.updated_at);
-        console.log('Loaded shared calendar ID:', data.setting_value);
+        console.log('Loaded shared calendar:', { calendarId, calendarName });
       }
     } catch (error) {
       console.error('Error fetching shared settings:', error);
@@ -131,11 +146,18 @@ const CalendarEvents = () => {
         console.error('Error clearing events:', clearError);
       }
 
-      // Update the shared calendar setting
+      // Find the calendar name for storage
+      const selectedCalendar = calendars.find((cal: any) => cal.id === calendarId);
+      const calendarName = selectedCalendar?.name || '';
+
+      // Update the shared calendar setting with both ID and name
       const { error } = await supabase
         .from('shared_calendar_settings')
         .update({
-          setting_value: { calendar_id: calendarId },
+          setting_value: {
+            calendar_id: calendarId,
+            calendar_name: calendarName
+          },
           updated_at: new Date().toISOString()
         })
         .eq('setting_key', 'selected_calendar_id');
@@ -143,6 +165,7 @@ const CalendarEvents = () => {
       if (error) throw error;
 
       setSelectedCalendarId(calendarId);
+      setSelectedCalendarName(calendarName);
       
       // Automatically sync the new calendar
       const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-google-calendar');

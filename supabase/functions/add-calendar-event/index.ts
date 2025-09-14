@@ -63,7 +63,16 @@ serve(async (req) => {
       .eq('setting_key', 'selected_calendar_id')
       .single();
     
-    const calendarId = calendarSettings?.setting_value || 'primary';
+    let calendarId = 'primary';
+    if (calendarSettings?.setting_value) {
+      // Handle both old string format and new object format
+      if (typeof calendarSettings.setting_value === 'string') {
+        calendarId = calendarSettings.setting_value;
+      } else if (calendarSettings.setting_value && typeof calendarSettings.setting_value === 'object') {
+        const settingObj = calendarSettings.setting_value as { calendar_id?: string };
+        calendarId = settingObj.calendar_id || 'primary';
+      }
+    }
     console.log('Using calendar ID:', calendarId);
 
     // Create Google Calendar event
