@@ -61,14 +61,12 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Use master user's Google configuration for all users
-    console.log('Fetching master Google configuration...')
-    const masterUserId = 'b7318f45-ae52-49f4-9db5-1662096679dd' // will@w-j-lander.uk
-    
+    // Use shared Google configuration from will@w-j-lander.uk
+    console.log('Fetching shared Google configuration...')
     const { data: config, error: configError } = await supabase
       .from('api_configurations')
       .select('*')
-      .eq('user_id', masterUserId)
+      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd') // will@w-j-lander.uk
       .eq('service_name', 'google')
       .maybeSingle()
 
@@ -84,10 +82,10 @@ serve(async (req) => {
     }
 
     if (!config || !config.access_token) {
-      console.log('No Google configuration found or no access token')
+      console.log('No shared Google configuration found or no access token')
       return new Response(
         JSON.stringify({ 
-          error: 'No Google configuration found or not connected. Please complete the Google OAuth flow first.' 
+          error: 'No shared Google configuration found. The administrator (will@w-j-lander.uk) needs to connect Google Calendar first.' 
         }),
         { 
           status: 400, 
@@ -96,13 +94,13 @@ serve(async (req) => {
       )
     }
 
-    console.log('Google configuration found, fetching calendars...')
+    console.log('Shared Google configuration found, fetching calendars...')
     
     try {
-      // Use the shared utility for automatic token refresh with master user
+      // Use the shared utility for automatic token refresh with master account
       const calendarResponse = await makeGoogleApiCall(
         supabase,
-        masterUserId,
+        'b7318f45-ae52-49f4-9db5-1662096679dd', // Use will@w-j-lander.uk's tokens
         'https://www.googleapis.com/calendar/v3/users/me/calendarList'
       )
 
@@ -112,7 +110,7 @@ serve(async (req) => {
         
         if (calendarResponse.status === 401) {
           return new Response(
-            JSON.stringify({ error: 'Google authorization expired. Please reconnect your Google account.' }),
+            JSON.stringify({ error: 'Google authorization expired. The administrator needs to reconnect the Google account.' }),
             { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
           )
         }
@@ -149,7 +147,7 @@ serve(async (req) => {
       
       if (error.message.includes('refresh')) {
         return new Response(
-          JSON.stringify({ error: 'Google authorization expired. Please reconnect your Google account.' }),
+          JSON.stringify({ error: 'Google authorization expired. The administrator needs to reconnect the Google account.' }),
           { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
         )
       }

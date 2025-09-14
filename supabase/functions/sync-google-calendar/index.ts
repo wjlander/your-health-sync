@@ -44,17 +44,6 @@ serve(async (req) => {
       }
     )
 
-    // Get shared calendar settings instead of user-specific selection
-    console.log('Fetching shared calendar settings...')
-    const { data: calendarSettings } = await supabase
-      .from('shared_calendar_settings')
-      .select('setting_value')
-      .eq('setting_key', 'selected_calendar_id')
-      .single()
-    
-    const selectedCalendarId = calendarSettings?.setting_value ? 
-      JSON.parse(calendarSettings.setting_value) : 'primary'
-
     // Get user from auth header
     console.log('Getting user from auth header...')
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
@@ -72,14 +61,22 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Get Google configuration from will@w-j-lander.uk (master user)
-    console.log('Fetching master Google configuration...')
-    const masterUserId = 'b7318f45-ae52-49f4-9db5-1662096679dd' // will@w-j-lander.uk
-    
+    // Get calendar selection from shared settings
+    const { data: calendarSetting } = await supabase
+      .from('shared_calendar_settings')
+      .select('setting_value')
+      .eq('setting_key', 'selected_calendar_id')
+      .single()
+      
+    const selectedCalendarId = calendarSetting?.setting_value?.replace(/"/g, '') || 'primary'
+    console.log('Using shared calendar ID:', selectedCalendarId)
+
+    // Use shared Google configuration from will@w-j-lander.uk
+    console.log('Fetching shared Google configuration...')
     const { data: config, error: configError } = await supabase
       .from('api_configurations')
       .select('*')
-      .eq('user_id', masterUserId)
+      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd') // will@w-j-lander.uk
       .eq('service_name', 'google')
       .maybeSingle()
 
@@ -95,10 +92,10 @@ serve(async (req) => {
     }
 
     if (!config || !config.access_token) {
-      console.log('No Google configuration found or no access token')
+      console.log('No shared Google configuration found or no access token')
       return new Response(
         JSON.stringify({ 
-          error: 'No Google configuration found or not connected. Please complete the Google OAuth flow first.' 
+          error: 'No shared Google configuration found. The administrator (will@w-j-lander.uk) needs to connect Google Calendar first.' 
         }),
         { 
           status: 400, 
@@ -107,9 +104,9 @@ serve(async (req) => {
       )
     }
 
-    console.log('Google configuration found, fetching calendar events...')
+    console.log('Shared Google configuration found, fetching calendar events...')
     
-    // Get calendar events from the selected calendar
+    // Get calendar events from the selected calendar using shared config
     const now = new Date()
     const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
     
@@ -120,125 +117,112 @@ serve(async (req) => {
       `orderBy=startTime&` +
       `maxResults=50`
 
-    console.log('Fetching events from calendar:', selectedCalendarId)
-    const response = await fetch(calendarUrl, {
-      headers: {
-        'Authorization': `Bearer ${config.access_token}`,
-        'Accept': 'application/json'
-      }
-    })
+    console.log('Fetching events from shared calendar:', selectedCalendarId)
+    
+    try {
+      // Use shared utility with will@w-j-lander.uk's credentials
+      const response = await makeGoogleApiCall(
+        supabase,
+        'b7318f45-ae52-49f4-9db5-1662096679dd', // Use will@w-j-lander.uk's tokens
+        calendarUrl
+      )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.log('Google Calendar API error:', response.status, errorText)
-      
-      if (response.status === 401) {
-        console.log('Access token expired, attempting refresh...')
-        try {
-          const newAccessToken = await refreshGoogleToken(supabase, masterUserId)
-          console.log('Token refreshed successfully, retrying calendar sync...')
-          
-          // Retry the calendar events request with new token
-          const retryResponse = await fetch(calendarUrl, {
-            headers: {
-              'Authorization': `Bearer ${newAccessToken}`,
-              'Accept': 'application/json'
-            }
-          })
-          
-          if (retryResponse.ok) {
-            const calendarData = await retryResponse.json()
-            console.log('Fetched', calendarData.items?.length || 0, 'events from Google Calendar')
-
-            // Continue with processing events...
-            let newEventsCount = 0
-            let updatedEventsCount = 0
-
-            if (calendarData.items && calendarData.items.length > 0) {
-              for (const event of calendarData.items) {
-                if (!event.start || !event.end) continue // Skip events without times
-
-                const startTime = event.start.dateTime || event.start.date
-                const endTime = event.end.dateTime || event.end.date
-                
-                if (!startTime || !endTime) continue
-
-                // Check if event already exists
-                const { data: existingEvent } = await supabase
-                  .from('calendar_events')
-                  .select('id')
-                  .eq('user_id', user.id)
-                  .eq('event_id', event.id)
-                  .single()
-
-                const eventData = {
-                  user_id: user.id,
-                  event_id: event.id,
-                  title: event.summary || 'Untitled Event',
-                  description: event.description || null,
-                  start_time: startTime,
-                  end_time: endTime,
-                  is_health_related: isHealthRelated(event.summary || '', event.description || '')
-                }
-
-                if (existingEvent) {
-                  // Update existing event
-                  const { error: updateError } = await supabase
-                    .from('calendar_events')
-                    .update(eventData)
-                    .eq('id', existingEvent.id)
-
-                  if (!updateError) {
-                    updatedEventsCount++
-                  }
-                } else {
-                  // Insert new event
-                  const { error: insertError } = await supabase
-                    .from('calendar_events')
-                    .insert(eventData)
-
-                  if (!insertError) {
-                    newEventsCount++
-                  }
-                }
-              }
-            }
-
-            return new Response(
-              JSON.stringify({
-                success: true,
-                message: `Calendar sync completed successfully`,
-                data: {
-                  newEvents: newEventsCount,
-                  updatedEvents: updatedEventsCount,
-                  totalProcessed: calendarData.items?.length || 0,
-                  calendarId: selectedCalendarId
-                }
-              }),
-              { 
-                status: 200,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            )
-          }
-        } catch (refreshError) {
-          console.log('Token refresh failed:', refreshError)
-        }
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.log('Google Calendar API error:', response.status, errorText)
         
         return new Response(
           JSON.stringify({ 
-            error: 'Google access token expired and refresh failed. Please reconnect your Google account in API settings.' 
+            error: `Google Calendar API error: ${response.status} ${response.statusText}. The administrator may need to reconnect Google Calendar.` 
           }),
           { 
-            status: 401, 
+            status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         )
       }
-      
+
+      const calendarData = await response.json()
+      console.log('Fetched', calendarData.items?.length || 0, 'events from shared Google Calendar')
+
+      // Process and insert events into user's database
+      let newEventsCount = 0
+      let updatedEventsCount = 0
+
+      if (calendarData.items && calendarData.items.length > 0) {
+        for (const event of calendarData.items) {
+          if (!event.start || !event.end) continue // Skip events without times
+
+          const startTime = event.start.dateTime || event.start.date
+          const endTime = event.end.dateTime || event.end.date
+          
+          if (!startTime || !endTime) continue
+
+          // Check if event already exists for this user
+          const { data: existingEvent } = await supabase
+            .from('calendar_events')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('event_id', event.id)
+            .single()
+
+          const eventData = {
+            user_id: user.id,
+            event_id: event.id,
+            title: event.summary || 'Untitled Event',
+            description: event.description || null,
+            start_time: startTime,
+            end_time: endTime,
+            is_health_related: isHealthRelated(event.summary || '', event.description || '')
+          }
+
+          if (existingEvent) {
+            // Update existing event
+            const { error: updateError } = await supabase
+              .from('calendar_events')
+              .update(eventData)
+              .eq('id', existingEvent.id)
+
+            if (!updateError) {
+              updatedEventsCount++
+            }
+          } else {
+            // Insert new event
+            const { error: insertError } = await supabase
+              .from('calendar_events')
+              .insert(eventData)
+
+            if (!insertError) {
+              newEventsCount++
+            }
+          }
+        }
+      }
+
+      console.log('Sync completed:', { newEventsCount, updatedEventsCount })
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Calendar sync completed successfully using shared configuration`,
+          data: {
+            newEvents: newEventsCount,
+            updatedEvents: updatedEventsCount,
+            totalProcessed: calendarData.items?.length || 0,
+            calendarId: selectedCalendarId
+          }
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+
+    } catch (error) {
+      console.error('Error during calendar sync:', error)
       return new Response(
         JSON.stringify({ 
-          error: `Google Calendar API error: ${response.status} ${response.statusText}` 
+          error: `Calendar sync failed: ${error.message}. The administrator may need to reconnect Google Calendar.`
         }),
         { 
           status: 500, 
@@ -246,82 +230,6 @@ serve(async (req) => {
         }
       )
     }
-
-    const calendarData = await response.json()
-    console.log('Fetched', calendarData.items?.length || 0, 'events from Google Calendar')
-
-    // Process and insert events into our database
-    let newEventsCount = 0
-    let updatedEventsCount = 0
-
-    if (calendarData.items && calendarData.items.length > 0) {
-      for (const event of calendarData.items) {
-        if (!event.start || !event.end) continue // Skip events without times
-
-        const startTime = event.start.dateTime || event.start.date
-        const endTime = event.end.dateTime || event.end.date
-        
-        if (!startTime || !endTime) continue
-
-        // Check if event already exists
-        const { data: existingEvent } = await supabase
-          .from('calendar_events')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('event_id', event.id)
-          .single()
-
-        const eventData = {
-          user_id: user.id,
-          event_id: event.id,
-          title: event.summary || 'Untitled Event',
-          description: event.description || null,
-          start_time: startTime,
-          end_time: endTime,
-          is_health_related: isHealthRelated(event.summary || '', event.description || '')
-        }
-
-        if (existingEvent) {
-          // Update existing event
-          const { error: updateError } = await supabase
-            .from('calendar_events')
-            .update(eventData)
-            .eq('id', existingEvent.id)
-
-          if (!updateError) {
-            updatedEventsCount++
-          }
-        } else {
-          // Insert new event
-          const { error: insertError } = await supabase
-            .from('calendar_events')
-            .insert(eventData)
-
-          if (!insertError) {
-            newEventsCount++
-          }
-        }
-      }
-    }
-
-    console.log('Sync completed:', { newEventsCount, updatedEventsCount })
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Calendar sync completed successfully`,
-        data: {
-          newEvents: newEventsCount,
-          updatedEvents: updatedEventsCount,
-          totalProcessed: calendarData.items?.length || 0,
-          calendarId: selectedCalendarId
-        }
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
 
   } catch (error) {
     console.error('=== SYNC ERROR ===')
@@ -352,71 +260,4 @@ function isHealthRelated(title: string, description: string): boolean {
   
   const searchText = `${title} ${description}`.toLowerCase()
   return healthKeywords.some(keyword => searchText.includes(keyword))
-}
-
-// Helper function to refresh Google access token
-async function refreshGoogleToken(supabase: any, userId: string): Promise<string> {
-  console.log('Refreshing Google token for user:', userId)
-  
-  // Get refresh token from user's config
-  const { data: config, error: configError } = await supabase
-    .from('api_configurations')
-    .select('refresh_token, id')
-    .eq('user_id', userId)
-    .eq('service_name', 'google')
-    .single()
-    
-  if (configError || !config?.refresh_token) {
-    console.log('No refresh token found:', configError)
-    throw new Error('No refresh token available. Please re-authorize Google.')
-  }
-
-  // Get client credentials from environment secrets
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-  
-  if (!clientId || !clientSecret) {
-    console.log('Missing Google OAuth configuration in secrets')
-    throw new Error('Google OAuth configuration not found in system secrets.')
-  }
-  
-  // Refresh the token
-  const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: config.refresh_token,
-      grant_type: 'refresh_token'
-    })
-  })
-  
-  if (!refreshResponse.ok) {
-    const errorText = await refreshResponse.text()
-    console.log('Token refresh failed:', refreshResponse.status, errorText)
-    throw new Error('Failed to refresh Google token. Please re-authorize.')
-  }
-  
-  const tokenData = await refreshResponse.json()
-  console.log('Token refresh successful')
-  
-  // Update the configuration with new token
-  const { error: updateError } = await supabase
-    .from('api_configurations')
-    .update({
-      access_token: tokenData.access_token,
-      expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', config.id)
-    
-  if (updateError) {
-    console.log('Failed to update token:', updateError)
-    throw new Error('Failed to save new token')
-  }
-  
-  return tokenData.access_token
 }

@@ -38,30 +38,74 @@ const CalendarEvents = () => {
   const [syncing, setSyncing] = useState(false);
   const [loadingCalendars, setLoadingCalendars] = useState(false);
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
-  const [isCalendarManager, setIsCalendarManager] = useState(false);
+  const [sharedSettings, setSharedSettings] = useState<any>(null);
+
+  // Check if current user is the calendar manager (will@w-j-lander.uk)
+  const isCalendarManager = user?.email === 'will@w-j-lander.uk';
 
   useEffect(() => {
     if (user) {
-      checkUserRole();
       fetchEvents();
-      fetchCalendars();
-      fetchSharedCalendarSettings();
+      fetchSharedSettings();
+      if (isCalendarManager) {
+        fetchCalendars();
+      }
     }
-  }, [user]);
+  }, [user, isCalendarManager]);
 
-  const checkUserRole = async () => {
-    if (!user) return;
-
+  const fetchSharedSettings = async () => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('user_id', user.id)
+      const { data, error } = await supabase
+        .from('shared_calendar_settings')
+        .select('*')
+        .eq('setting_key', 'selected_calendar_id')
         .single();
 
-      setIsCalendarManager(profile?.email === 'will@w-j-lander.uk');
+      if (error) throw error;
+      
+      if (data) {
+        setSharedSettings(data);
+        const calendarId = String(data.setting_value || 'primary').replace(/"/g, '');
+        setSelectedCalendarId(calendarId);
+      }
     } catch (error) {
-      console.error('Error checking user role:', error);
+      console.error('Error fetching shared settings:', error);
+    }
+  };
+
+  const updateSharedCalendarSetting = async (calendarId: string) => {
+    if (!isCalendarManager) {
+      toast({
+        title: "Access Denied",
+        description: "Only the calendar administrator can change these settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('shared_calendar_settings')
+        .update({
+          setting_value: JSON.stringify(calendarId),
+          updated_at: new Date().toISOString()
+        })
+        .eq('setting_key', 'selected_calendar_id');
+
+      if (error) throw error;
+
+      setSelectedCalendarId(calendarId);
+      toast({
+        title: "Calendar Updated",
+        description: "Calendar selection updated for all users.",
+      });
+    } catch (error) {
+      console.error('Error updating shared settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update calendar settings.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -90,27 +134,8 @@ const CalendarEvents = () => {
     }
   };
 
-  const fetchSharedCalendarSettings = async () => {
-    try {
-      const { data } = await supabase
-        .from('shared_calendar_settings')
-        .select('setting_value')
-        .eq('setting_key', 'selected_calendar_id')
-        .single();
-
-      if (data?.setting_value) {
-        const calendarId = JSON.parse(data.setting_value as string);
-        if (typeof calendarId === 'string') {
-          setSelectedCalendarId(calendarId);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching shared calendar settings:', error);
-    }
-  };
-
   const fetchCalendars = async () => {
-    if (!user) return;
+    if (!user || !isCalendarManager) return;
 
     setLoadingCalendars(true);
     try {
@@ -127,7 +152,7 @@ const CalendarEvents = () => {
       console.error('Error fetching calendars:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch Google Calendars. Please check your connection.",
+        description: "Failed to fetch Google Calendars. Please check the administrator's connection.",
         variant: "destructive",
       });
     } finally {
@@ -145,7 +170,7 @@ const CalendarEvents = () => {
       if (data?.success) {
         toast({
           title: "Sync Complete",
-          description: `Synced ${data.data?.newEvents || 0} new events and updated ${data.data?.updatedEvents || 0} events`,
+          description: `Synced ${data.data?.newEvents || 0} new events and updated ${data.data?.updatedEvents || 0} events from shared calendar`,
         });
         
         fetchEvents();
@@ -156,47 +181,11 @@ const CalendarEvents = () => {
       console.error('Error syncing Google Calendar:', error);
       toast({
         title: "Sync Failed",
-        description: "Failed to sync Google Calendar. Please check your API configuration.",
+        description: "Failed to sync shared Google Calendar. The administrator may need to reconnect the account.",
         variant: "destructive",
       });
     } finally {
       setSyncing(false);
-    }
-  };
-
-  const updateSharedCalendarSettings = async (calendarId: string) => {
-    if (!isCalendarManager) {
-      toast({
-        title: "Access Denied",
-        description: "Only will@w-j-lander.uk can change calendar settings.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('shared_calendar_settings')
-        .update({ 
-          setting_value: JSON.stringify(calendarId),
-          updated_at: new Date().toISOString()
-        })
-        .eq('setting_key', 'selected_calendar_id');
-
-      if (error) throw error;
-
-      setSelectedCalendarId(calendarId);
-      toast({
-        title: "Calendar Updated",
-        description: "Shared calendar settings updated for all users.",
-      });
-    } catch (error) {
-      console.error('Error updating shared calendar settings:', error);
-      toast({
-        title: "Update Failed",
-        description: "Failed to update calendar settings.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -230,7 +219,11 @@ const CalendarEvents = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Calendar Events</h2>
-          <p className="text-muted-foreground">Manage your Google Calendar integration</p>
+          <p className="text-muted-foreground">
+            {isCalendarManager 
+              ? "Manage shared Google Calendar integration for all users" 
+              : "View events from the shared Google Calendar"}
+          </p>
         </div>
         <div className="flex space-x-2">
           {isCalendarManager && (
@@ -238,63 +231,63 @@ const CalendarEvents = () => {
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={fetchCalendars}>
                   <Settings className="h-4 w-4 mr-2" />
-                  Manage Shared Calendar
+                  Manage Calendar
                 </Button>
               </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Manage Shared Calendar</DialogTitle>
-                <DialogDescription>
-                  Choose which Google Calendar all users will sync events from. This setting affects all users.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Available Calendars (Shared for All Users)</Label>
-                  {loadingCalendars ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-12 bg-muted rounded animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    <Select value={selectedCalendarId} onValueChange={setSelectedCalendarId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a calendar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {calendars.map((calendar) => (
-                          <SelectItem key={calendar.id} value={calendar.id}>
-                            <div className="flex items-center space-x-2">
-                              <span>{calendar.name}</span>
-                              {calendar.primary && (
-                                <Badge variant="outline" className="text-xs">Primary</Badge>
-                              )}
-                            </div>
-                          </SelectItem>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Manage Shared Calendar</DialogTitle>
+                  <DialogDescription>
+                    Choose which Google Calendar all users will sync events from. This affects all users in the system.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Available Calendars</Label>
+                    {loadingCalendars ? (
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="h-12 bg-muted rounded animate-pulse" />
                         ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                      </div>
+                    ) : (
+                      <Select value={selectedCalendarId} onValueChange={setSelectedCalendarId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a calendar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {calendars.map((calendar) => (
+                            <SelectItem key={calendar.id} value={calendar.id}>
+                              <div className="flex items-center space-x-2">
+                                <span>{calendar.name}</span>
+                                {calendar.primary && (
+                                  <Badge variant="outline" className="text-xs">Primary</Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={() => {
+                        updateSharedCalendarSetting(selectedCalendarId);
+                        setCalendarDialogOpen(false);
+                      }}
+                      disabled={!selectedCalendarId}
+                      className="flex-1"
+                    >
+                      Update Shared Calendar
+                    </Button>
+                    <Button variant="outline" onClick={() => setCalendarDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <Button 
-                    onClick={() => {
-                      updateSharedCalendarSettings(selectedCalendarId);
-                      setCalendarDialogOpen(false);
-                    }}
-                    disabled={!selectedCalendarId}
-                    className="flex-1"
-                  >
-                    Update Shared Calendar
-                  </Button>
-                  <Button variant="outline" onClick={() => setCalendarDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
           )}
           <Button
             onClick={syncGoogleCalendar}
@@ -417,8 +410,7 @@ const CalendarEvents = () => {
                 <CardTitle className="mb-2">No Calendar Events</CardTitle>
                 <CardDescription>
                   Click "Sync Calendar" to import events from the shared Google Calendar.
-                  {!isCalendarManager && " Calendar settings are managed by will@w-j-lander.uk."}
-                  {isCalendarManager && calendars.length === 0 && " Configure your Google API settings first."}
+                  {!isCalendarManager && " The administrator needs to configure the Google Calendar connection first."}
                 </CardDescription>
               </CardContent>
             </Card>
