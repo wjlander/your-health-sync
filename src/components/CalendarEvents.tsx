@@ -247,13 +247,13 @@ const CalendarEvents = () => {
       
       if (error) throw error;
       
-      if (data?.calendars) {
-        console.log('Available calendars:', data.calendars);
-        setCalendars(data.calendars);
+      if (data?.success && data?.data) {
+        console.log('Available calendars:', data.data);
+        setCalendars(data.data);
         
         // Set current selection if we don't have one
-        if (!selectedCalendarId && data.calendars.length > 0) {
-          const primaryCalendar = data.calendars.find((cal: any) => cal.primary);
+        if (!selectedCalendarId && data.data.length > 0) {
+          const primaryCalendar = data.data.find((cal: any) => cal.primary);
           if (primaryCalendar) {
             console.log('Setting primary calendar as default:', primaryCalendar.id);
             setSelectedCalendarId(primaryCalendar.id);
@@ -262,7 +262,7 @@ const CalendarEvents = () => {
         
         // Update calendar name for display
         if (selectedCalendarId) {
-          const selectedCalendar = data.calendars.find((cal: any) => cal.id === selectedCalendarId);
+          const selectedCalendar = data.data.find((cal: any) => cal.id === selectedCalendarId);
           if (selectedCalendar) {
             console.log('Found selected calendar name:', selectedCalendar.name);
             setSelectedCalendarName(selectedCalendar.name);
