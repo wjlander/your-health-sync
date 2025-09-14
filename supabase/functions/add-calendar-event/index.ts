@@ -63,7 +63,7 @@ serve(async (req) => {
       .eq('setting_key', 'selected_calendar_id')
       .single();
     
-    const calendarId = calendarSettings?.setting_value?.calendar_id || 'primary';
+    const calendarId = calendarSettings?.setting_value || 'primary';
     console.log('Using calendar ID:', calendarId);
 
     // Create Google Calendar event
@@ -77,13 +77,16 @@ serve(async (req) => {
       eventData.start = { date: start_datetime.split('T')[0] };
       eventData.end = { date: end_datetime.split('T')[0] };
     } else {
-      // For timed events, use dateTime format
+      // For timed events, use dateTime format with proper ISO string
+      const startDate = new Date(start_datetime);
+      const endDate = new Date(end_datetime);
+      
       eventData.start = { 
-        dateTime: start_datetime,
+        dateTime: startDate.toISOString(),
         timeZone: 'UTC'
       };
       eventData.end = { 
-        dateTime: end_datetime,
+        dateTime: endDate.toISOString(),
         timeZone: 'UTC'
       };
     }

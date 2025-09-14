@@ -151,7 +151,7 @@ serve(async (req) => {
       .eq('setting_key', 'selected_calendar_id')
       .single();
     
-    const calendarId = calendarSettings?.setting_value?.calendar_id || 'primary';
+    const calendarId = calendarSettings?.setting_value || 'primary';
     console.log('Using calendar ID:', calendarId);
 
     const calendarResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
