@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotifications } from '@/hooks/useNotifications';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { Target, Clock, RefreshCw, Plus, Play, Pause, Trash2, Edit, Bell } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -30,7 +30,7 @@ interface Routine {
 
 const RoutinesManager = () => {
   const { user } = useAuth();
-  const { scheduleRoutineReminders } = useNotifications();
+  const { isInitialized, scheduleRoutineReminders } = usePushNotifications();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);

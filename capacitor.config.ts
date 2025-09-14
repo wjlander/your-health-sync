@@ -10,12 +10,11 @@ const config: CapacitorConfig = {
   //   cleartext: true
   // },
   plugins: {
-    LocalNotifications: {
-      smallIcon: "ic_launcher",
-      iconColor: "#4F46E5",
-      sound: "beep.wav",
-      requestPermissions: true,
-      enableBackgroundDelivery: true
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"]
+    },
+    FirebaseMessaging: {
+      presentationOptions: ["badge", "sound", "alert"]
     }
   }
 };
