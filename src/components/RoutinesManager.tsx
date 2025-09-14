@@ -424,14 +424,14 @@ const RoutinesManager = () => {
                 Create Routine
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
+            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Create New Routine</DialogTitle>
                 <DialogDescription>
                   Set up a new routine or reminder for your wellness goals.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto flex-1 pr-2">
                 <div className="space-y-2">
                   <Label htmlFor="title">Routine Title</Label>
                   <Input
@@ -556,8 +556,8 @@ const RoutinesManager = () => {
                     />
                   </div>
                 </div>
-
-                <div className="flex space-x-2 pt-4">
+                
+                <div className="flex space-x-2 pt-4 flex-shrink-0 border-t">
                   <Button
                     onClick={handleCreateRoutine}
                     disabled={!newRoutine.title}
