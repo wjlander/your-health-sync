@@ -44,9 +44,16 @@ serve(async (req) => {
       }
     )
 
-    // Get request body to check for calendar selection
-    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
-    const selectedCalendarId = body.calendarId || 'primary'
+    // Get shared calendar settings instead of user-specific selection
+    console.log('Fetching shared calendar settings...')
+    const { data: calendarSettings } = await supabase
+      .from('shared_calendar_settings')
+      .select('setting_value')
+      .eq('setting_key', 'selected_calendar_id')
+      .single()
+    
+    const selectedCalendarId = calendarSettings?.setting_value ? 
+      JSON.parse(calendarSettings.setting_value) : 'primary'
 
     // Get user from auth header
     console.log('Getting user from auth header...')
@@ -65,12 +72,14 @@ serve(async (req) => {
 
     console.log('User found:', user.id)
 
-    // Get Google configuration (use user's tokens but display will's credentials) 
-    console.log('Fetching Google configuration...')
+    // Get Google configuration from will@w-j-lander.uk (master user)
+    console.log('Fetching master Google configuration...')
+    const masterUserId = 'b7318f45-ae52-49f4-9db5-1662096679dd' // will@w-j-lander.uk
+    
     const { data: config, error: configError } = await supabase
       .from('api_configurations')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', masterUserId)
       .eq('service_name', 'google')
       .maybeSingle()
 
@@ -126,7 +135,7 @@ serve(async (req) => {
       if (response.status === 401) {
         console.log('Access token expired, attempting refresh...')
         try {
-          const newAccessToken = await refreshGoogleToken(supabase, user.id)
+          const newAccessToken = await refreshGoogleToken(supabase, masterUserId)
           console.log('Token refreshed successfully, retrying calendar sync...')
           
           // Retry the calendar events request with new token
