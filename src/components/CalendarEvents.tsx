@@ -35,6 +35,8 @@ const CalendarEvents = () => {
   const [calendars, setCalendars] = useState<any[]>([]);
   const [loadingCalendars, setLoadingCalendars] = useState(false);
   const [showAddEventDialog, setShowAddEventDialog] = useState(false);
+  const [selectedCalendarName, setSelectedCalendarName] = useState('');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   // Check if current user is the calendar manager (will@w-j-lander.uk)
   const isCalendarManager = user?.id === 'b7318f45-ae52-49f4-9db5-1662096679dd';
@@ -50,7 +52,7 @@ const CalendarEvents = () => {
     try {
       const { data, error } = await supabase
         .from('shared_calendar_settings')
-        .select('setting_value')
+        .select('setting_value, updated_at')
         .eq('setting_key', 'selected_calendar_id')
         .single();
 
@@ -59,12 +61,10 @@ const CalendarEvents = () => {
         return;
       }
 
-      if (data?.setting_value && typeof data.setting_value === 'object' && data.setting_value !== null) {
-        const settingValue = data.setting_value as { calendar_id?: string };
-        if (settingValue.calendar_id) {
-          setSelectedCalendarId(settingValue.calendar_id);
-          console.log('Loaded shared calendar ID:', settingValue.calendar_id);
-        }
+      if (data?.setting_value) {
+        setSelectedCalendarId(data.setting_value as string);
+        setLastSyncTime(data.updated_at);
+        console.log('Loaded shared calendar ID:', data.setting_value);
       }
     } catch (error) {
       console.error('Error fetching shared settings:', error);
@@ -227,6 +227,14 @@ const CalendarEvents = () => {
             setSelectedCalendarId(primaryCalendar.id);
           }
         }
+        
+        // Update calendar name for display
+        if (selectedCalendarId) {
+          const selectedCalendar = data.calendars.find((cal: any) => cal.id === selectedCalendarId);
+          if (selectedCalendar) {
+            setSelectedCalendarName(selectedCalendar.name);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching calendars:', error);
@@ -248,6 +256,7 @@ const CalendarEvents = () => {
       if (error) throw error;
       
       if (data?.success) {
+        setLastSyncTime(new Date().toISOString());
         toast({
           title: "Sync Complete",
           description: `Synced ${data.data?.newEvents || 0} new events and updated ${data.data?.updatedEvents || 0} events from shared calendar`,
@@ -400,6 +409,56 @@ const CalendarEvents = () => {
           </Dialog>
         </div>
       </div>
+
+      {/* Calendar Status Section */}
+      <Card className="bg-muted/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center space-x-2">
+            <Calendar className="h-5 w-5 text-health-primary" />
+            <span>Calendar Status</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Connected Calendar:</span>
+            <div className="flex items-center space-x-2">
+              {selectedCalendarName ? (
+                <span className="text-sm">{selectedCalendarName}</span>
+              ) : selectedCalendarId ? (
+                <span className="text-sm text-muted-foreground">{selectedCalendarId}</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">No calendar selected</span>
+              )}
+              {selectedCalendarId && (
+                <Badge variant="outline" className="text-xs">Connected</Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Last Sync:</span>
+            <span className="text-sm text-muted-foreground">
+              {lastSyncTime ? (
+                <>
+                  {new Date(lastSyncTime).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </>
+              ) : (
+                'Never synced'
+              )}
+            </span>
+          </div>
+          {!isCalendarManager && !selectedCalendarId && (
+            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+              No calendar configured. Contact the administrator to set up calendar integration.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="space-y-4">
