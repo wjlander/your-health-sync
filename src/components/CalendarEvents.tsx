@@ -1,75 +1,110 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Calendar, Clock, MapPin, RefreshCw, Plus, Settings } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Calendar, Clock, Settings, RefreshCw, Plus } from 'lucide-react';
+import { AddEventForm } from './AddEventForm';
 
 interface CalendarEvent {
   id: string;
-  event_id: string;
   title: string;
   description?: string;
   start_time: string;
   end_time: string;
+  event_id?: string;
   is_health_related: boolean;
-}
-
-interface GoogleCalendar {
-  id: string;
-  name: string;
-  description?: string;
-  primary: boolean;
-  accessRole: string;
-  backgroundColor?: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const CalendarEvents = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const { toast } = useToast();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [calendars, setCalendars] = useState<GoogleCalendar[]>([]);
-  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('primary');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [loadingCalendars, setLoadingCalendars] = useState(false);
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
-  const [sharedSettings, setSharedSettings] = useState<any>(null);
+  const [selectedCalendarId, setSelectedCalendarId] = useState('');
+  const [calendars, setCalendars] = useState<any[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
+  const [showAddEventDialog, setShowAddEventDialog] = useState(false);
 
   // Check if current user is the calendar manager (will@w-j-lander.uk)
-  const isCalendarManager = user?.email === 'will@w-j-lander.uk';
+  const isCalendarManager = user?.id === 'b7318f45-ae52-49f4-9db5-1662096679dd';
 
   useEffect(() => {
     if (user) {
       fetchEvents();
-      fetchSharedSettings();
-      if (isCalendarManager) {
-        fetchCalendars();
-      }
+      fetchSharedCalendarSettings();
     }
-  }, [user, isCalendarManager]);
+  }, [user]);
 
-  const fetchSharedSettings = async () => {
+  const fetchSharedCalendarSettings = async () => {
     try {
       const { data, error } = await supabase
         .from('shared_calendar_settings')
-        .select('*')
+        .select('setting_value')
         .eq('setting_key', 'selected_calendar_id')
         .single();
 
-      if (error) throw error;
-      
-      if (data) {
-        setSharedSettings(data);
-        const calendarId = String(data.setting_value || 'primary').replace(/"/g, '');
-        setSelectedCalendarId(calendarId);
+      if (error) {
+        console.log('No shared calendar settings found:', error);
+        return;
+      }
+
+      if (data?.setting_value && typeof data.setting_value === 'object' && data.setting_value !== null) {
+        const settingValue = data.setting_value as { calendar_id?: string };
+        if (settingValue.calendar_id) {
+          setSelectedCalendarId(settingValue.calendar_id);
+          console.log('Loaded shared calendar ID:', settingValue.calendar_id);
+        }
       }
     } catch (error) {
       console.error('Error fetching shared settings:', error);
+    }
+  };
+
+  // Auto-sync every 15 minutes
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      console.log('Auto-syncing calendar...');
+      handleSync();
+    }, 15 * 60 * 1000); // 15 minutes in milliseconds
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleAddEvent = async (eventData: any) => {
+    try {
+      const response = await supabase.functions.invoke('add-calendar-event', {
+        body: eventData
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: 'Event Added',
+        description: 'Event has been added to the shared calendar.',
+      });
+      
+      setShowAddEventDialog(false);
+      fetchEvents(); // Refresh events
+    } catch (error: any) {
+      console.error('Error adding event:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add event to calendar.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -100,7 +135,7 @@ const CalendarEvents = () => {
       const { error } = await supabase
         .from('shared_calendar_settings')
         .update({
-          setting_value: JSON.stringify(calendarId),
+          setting_value: { calendar_id: calendarId },
           updated_at: new Date().toISOString()
         })
         .eq('setting_key', 'selected_calendar_id');
@@ -157,9 +192,9 @@ const CalendarEvents = () => {
     } catch (error) {
       console.error('Error fetching events:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch calendar events",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch calendar events.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -167,7 +202,14 @@ const CalendarEvents = () => {
   };
 
   const fetchCalendars = async () => {
-    if (!user || !isCalendarManager) return;
+    if (!isCalendarManager) {
+      toast({
+        title: "Access Denied",
+        description: "Only the calendar administrator can manage these settings.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoadingCalendars(true);
     try {
@@ -175,24 +217,30 @@ const CalendarEvents = () => {
       
       if (error) throw error;
       
-      if (data?.success && data?.data) {
-        setCalendars(data.data);
-      } else {
-        throw new Error(data?.error || 'Failed to fetch calendars');
+      if (data?.calendars) {
+        setCalendars(data.calendars);
+        
+        // Set current selection if we don't have one
+        if (!selectedCalendarId && data.calendars.length > 0) {
+          const primaryCalendar = data.calendars.find((cal: any) => cal.primary);
+          if (primaryCalendar) {
+            setSelectedCalendarId(primaryCalendar.id);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching calendars:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch Google Calendars. Please check the administrator's connection.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch Google calendars. Make sure Google integration is connected.',
+        variant: 'destructive',
       });
     } finally {
       setLoadingCalendars(false);
     }
   };
 
-  const syncGoogleCalendar = async () => {
+  const handleSync = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-google-calendar');
@@ -322,7 +370,7 @@ const CalendarEvents = () => {
             </Dialog>
           )}
           <Button
-            onClick={syncGoogleCalendar}
+            onClick={handleSync}
             disabled={syncing}
             variant="outline"
           >
@@ -333,20 +381,33 @@ const CalendarEvents = () => {
             )}
             {syncing ? 'Syncing...' : 'Sync Calendar'}
           </Button>
-          <Button className="bg-health-primary hover:bg-health-secondary">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Event
-          </Button>
+          <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-health-primary hover:bg-health-secondary">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add Calendar Event</DialogTitle>
+              </DialogHeader>
+              <AddEventForm 
+                onSave={handleAddEvent} 
+                onCancel={() => setShowAddEventDialog(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       {loading ? (
         <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
               <CardHeader>
-                <div className="h-4 bg-muted rounded w-1/3"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
+                <div className="h-5 bg-muted rounded w-1/3 mb-2"></div>
+                <div className="h-4 bg-muted rounded w-1/2"></div>
               </CardHeader>
               <CardContent>
                 <div className="h-3 bg-muted rounded w-full mb-2"></div>

@@ -13,9 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Plus, MessageCircle, Clock, User, Filter } from 'lucide-react';
+import { CalendarIcon, Plus, MessageCircle, Clock, User, Filter, Edit, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { TaskTemplateManager } from './TaskTemplateManager';
+import { EditTaskForm } from './EditTaskForm';
 
 interface Task {
   id: string;
@@ -87,6 +89,9 @@ export const TaskManager = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState('');
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteTask, setDeleteTask] = useState<Task | null>(null);
 
   const priorityColors = {
     low: 'bg-green-100 text-green-800',
@@ -288,6 +293,58 @@ export const TaskManager = () => {
     }
   };
 
+  const editTask = async (task: Task, updatedData: any) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update(updatedData)
+        .eq('id', task.id);
+
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: 'Task updated successfully!',
+      });
+      fetchTasks();
+      setShowEditDialog(false);
+      setEditingTask(null);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update task: ' + error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!deleteTask) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', deleteTask.id);
+
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: 'Task deleted successfully!',
+      });
+      fetchTasks();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete task: ' + error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleteTask(null);
+    }
+  };
+
   const addComment = async (taskId: string) => {
     if (!newComment.trim()) return;
 
@@ -323,15 +380,15 @@ export const TaskManager = () => {
       description: template.description || '',
       priority: template.priority as 'low' | 'medium' | 'high' | 'urgent',
       due_date: '',
-      assigned_to: '',
+      assigned_to: '', // User can assign to anyone
       project: template.project || '',
       tags: template.tags?.join(', ') || '',
-      add_to_calendar: false
+      add_to_calendar: true // Default to true for calendar integration
     });
     setShowNewTaskDialog(true);
     toast({
       title: 'Template Loaded',
-      description: 'Template has been loaded. You can modify the details before creating the task.',
+      description: 'You can assign this task to any user and it will be added to the shared calendar.',
     });
   };
 
@@ -594,17 +651,39 @@ export const TaskManager = () => {
                         </SelectContent>
                       </Select>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedTask(task);
-                        fetchComments(task.id);
-                      }}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-1" />
-                      Comments
-                    </Button>
+                    <div className="flex space-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedTask(task);
+                          fetchComments(task.id);
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                      {task.created_by === user?.id && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingTask(task);
+                              setShowEditDialog(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteTask(task)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -652,6 +731,42 @@ export const TaskManager = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          {editingTask && (
+            <EditTaskForm
+              task={editingTask}
+              profiles={profiles}
+              onSave={editTask}
+              onCancel={() => {
+                setShowEditDialog(false);
+                setEditingTask(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTask} onOpenChange={() => setDeleteTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the task "{deleteTask?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTask}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
         </TabsContent>
         
         <TabsContent value="templates">

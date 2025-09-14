@@ -48,45 +48,28 @@ serve(async (req) => {
 
     console.log('Creating calendar reminder for task:', task_id);
 
-    // Get Google API configuration for the user (either creator or assignee)
-    let googleConfig = null;
+    // Get Google API configuration from shared settings
+    console.log('Getting shared Google configuration...');
     
-    // First try to get config for assigned user if different from creator
-    if (assigned_to && assigned_to !== user.id) {
-      const { data: assigneeConfig } = await supabase
-        .from('api_configurations')
-        .select('*')
-        .eq('user_id', assigned_to)
-        .eq('service_name', 'google')
-        .eq('is_active', true)
-        .single();
-      
-      if (assigneeConfig) {
-        googleConfig = assigneeConfig;
-        console.log('Using assignee Google config');
-      }
-    }
+    // Get the shared calendar configuration (will@w-j-lander.uk's config)
+    const { data: sharedConfig, error: configError } = await supabase
+      .from('api_configurations')
+      .select('*')
+      .eq('user_id', 'b7318f45-ae52-49f4-9db5-1662096679dd') // will@w-j-lander.uk
+      .eq('service_name', 'google')
+      .eq('is_active', true)
+      .single();
     
-    // Fall back to creator's config if no assignee config
-    if (!googleConfig) {
-      const { data: creatorConfig } = await supabase
-        .from('api_configurations')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('service_name', 'google')
-        .eq('is_active', true)
-        .single();
-      
-      googleConfig = creatorConfig;
-      console.log('Using creator Google config');
-    }
-
-    if (!googleConfig) {
+    if (configError || !sharedConfig) {
+      console.log('No shared Google configuration found:', configError);
       return new Response(
-        JSON.stringify({ error: 'Google Calendar not connected. Please connect to Google Calendar first.' }),
+        JSON.stringify({ error: 'Shared Google Calendar not configured. Please contact administrator.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Using shared Google configuration');
+    const googleConfig = sharedConfig;
 
     // Check if token needs refresh
     let accessToken = googleConfig.access_token;
@@ -161,7 +144,17 @@ serve(async (req) => {
 
     console.log('Creating calendar event:', calendarEvent);
 
-    const calendarResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    // Get the shared calendar ID from settings
+    const { data: calendarSettings } = await supabase
+      .from('shared_calendar_settings')
+      .select('setting_value')
+      .eq('setting_key', 'selected_calendar_id')
+      .single();
+    
+    const calendarId = calendarSettings?.setting_value?.calendar_id || 'primary';
+    console.log('Using calendar ID:', calendarId);
+
+    const calendarResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
