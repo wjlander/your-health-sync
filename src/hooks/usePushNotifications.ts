@@ -119,6 +119,8 @@ export const usePushNotifications = () => {
     options?: {
       includeIFTTT?: boolean;
       iftttWebhookUrl?: string;
+      includeN8N?: boolean;
+      n8nWebhookUrl?: string;
     }
   ) => {
     if (!isInitialized) {
@@ -142,7 +144,9 @@ export const usePushNotifications = () => {
           scheduleFor: scheduleAt.toISOString(),
           immediate: false,
           includeIFTTT: options?.includeIFTTT || false,
-          iftttWebhookUrl: options?.iftttWebhookUrl
+          iftttWebhookUrl: options?.iftttWebhookUrl,
+          includeN8N: options?.includeN8N || false,
+          n8nWebhookUrl: options?.n8nWebhookUrl
         }
       });
 
@@ -211,6 +215,8 @@ export const usePushNotifications = () => {
     options?: {
       includeIFTTT?: boolean;
       iftttWebhookUrl?: string;
+      includeN8N?: boolean;
+      n8nWebhookUrl?: string;
     }
   ) => {
     try {
@@ -221,7 +227,9 @@ export const usePushNotifications = () => {
           data,
           immediate: true,
           includeIFTTT: options?.includeIFTTT || false,
-          iftttWebhookUrl: options?.iftttWebhookUrl
+          iftttWebhookUrl: options?.iftttWebhookUrl,
+          includeN8N: options?.includeN8N || false,
+          n8nWebhookUrl: options?.n8nWebhookUrl
         }
       });
 

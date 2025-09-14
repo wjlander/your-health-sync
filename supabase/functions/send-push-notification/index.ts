@@ -48,8 +48,8 @@ serve(async (req) => {
       });
     }
 
-    const { title, body, data, scheduleFor, immediate = false, includeIFTTT = false, iftttWebhookUrl } = await req.json();
-    console.log('Request body:', { title, body, data, scheduleFor, immediate, includeIFTTT });
+    const { title, body, data, scheduleFor, immediate = false, includeIFTTT = false, iftttWebhookUrl, includeN8N = false, n8nWebhookUrl } = await req.json();
+    console.log('Request body:', { title, body, data, scheduleFor, immediate, includeIFTTT, includeN8N });
 
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'Title and body are required' }), {
@@ -124,11 +124,19 @@ serve(async (req) => {
         iftttResult = await triggerIFTTTWebhook(user.id, title, body, data, iftttWebhookUrl, supabase);
       }
 
+      // Also trigger n8n webhook if requested
+      let n8nResult = null;
+      if (includeN8N) {
+        console.log('Triggering n8n webhook...');
+        n8nResult = await triggerN8NWebhook(user.id, title, body, data, n8nWebhookUrl, supabase);
+      }
+
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Immediate notification sent',
         results: results,
-        iftttResult
+        iftttResult,
+        n8nResult
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -148,7 +156,9 @@ serve(async (req) => {
         data: {
           ...(data || {}),
           includeIFTTT,
-          iftttWebhookUrl: includeIFTTT ? iftttWebhookUrl : undefined
+          iftttWebhookUrl: includeIFTTT ? iftttWebhookUrl : undefined,
+          includeN8N,
+          n8nWebhookUrl: includeN8N ? n8nWebhookUrl : undefined
         },
         scheduled_for: scheduleFor,
       };
@@ -250,6 +260,73 @@ async function triggerIFTTTWebhook(
 
   } catch (error) {
     console.error('Error triggering IFTTT webhook:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to trigger n8n webhook
+async function triggerN8NWebhook(
+  userId: string, 
+  title: string, 
+  body: string, 
+  data: any, 
+  customWebhookUrl?: string,
+  supabase?: any
+) {
+  try {
+    let webhookUrl = customWebhookUrl;
+    
+    // If no custom webhook URL provided, try to get it from user's API configurations
+    if (!webhookUrl && supabase) {
+      console.log('Looking up n8n webhook URL for user:', userId);
+      const { data: n8nConfig } = await supabase
+        .from('api_configurations')
+        .select('api_key')
+        .eq('user_id', userId)
+        .eq('service_name', 'n8n')
+        .single();
+      
+      if (n8nConfig?.api_key) {
+        webhookUrl = n8nConfig.api_key; // Store webhook URL in api_key field
+      }
+    }
+
+    if (!webhookUrl) {
+      console.log('No n8n webhook URL configured for user');
+      return { success: false, error: 'No n8n webhook URL configured' };
+    }
+
+    console.log('Triggering n8n webhook:', webhookUrl.substring(0, 50) + '...');
+
+    const n8nPayload = {
+      title: title,
+      body: body,
+      data: data || {},
+      timestamp: new Date().toISOString(),
+      userId: userId,
+      source: 'lovable-push-notification'
+    };
+
+    const n8nResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(n8nPayload)
+    });
+
+    console.log('n8n Response status:', n8nResponse.status);
+
+    if (n8nResponse.ok) {
+      return { success: true, status: n8nResponse.status };
+    } else {
+      const errorText = await n8nResponse.text();
+      console.error('n8n webhook failed:', errorText);
+      return { success: false, error: errorText };
+    }
+
+  } catch (error) {
+    console.error('Error triggering n8n webhook:', error);
     return { success: false, error: error.message };
   }
 }

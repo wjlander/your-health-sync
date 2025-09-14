@@ -135,6 +135,32 @@ serve(async (req) => {
           }
         }
 
+        // Trigger webhooks if configured
+        let webhookResults = {};
+        if (notification.data?.includeIFTTT) {
+          console.log('Triggering IFTTT webhook for scheduled notification...');
+          webhookResults.ifttt = await triggerIFTTTWebhook(
+            notification.user_id,
+            notification.title,
+            notification.body,
+            notification.data,
+            notification.data.iftttWebhookUrl,
+            supabase
+          );
+        }
+        
+        if (notification.data?.includeN8N) {
+          console.log('Triggering n8n webhook for scheduled notification...');
+          webhookResults.n8n = await triggerN8NWebhook(
+            notification.user_id,
+            notification.title,
+            notification.body,
+            notification.data,
+            notification.data.n8nWebhookUrl,
+            supabase
+          );
+        }
+
         // Update notification status
         if (successCount > 0) {
           await supabase
@@ -149,7 +175,8 @@ serve(async (req) => {
             id: notification.id,
             status: 'sent',
             successCount: successCount,
-            totalTokens: tokens.length
+            totalTokens: tokens.length,
+            webhookResults
           });
         } else {
           await supabase
@@ -164,11 +191,58 @@ serve(async (req) => {
           processedResults.push({
             id: notification.id,
             status: 'failed',
-            errors: errors
-  });
-}
+            errors: errors,
+            webhookResults
+          });
+        }
 
-// Function to trigger IFTTT webhook (same as in send-push-notification)
+      } catch (error) {
+        console.error(`Error processing notification ${notification.id}:`, error);
+        
+        // Mark as failed
+        await supabase
+          .from('scheduled_notifications')
+          .update({ 
+            status: 'failed',
+            error_message: error.message,
+            sent_at: new Date().toISOString()
+          })
+          .eq('id', notification.id);
+        
+        processedResults.push({
+          id: notification.id,
+          status: 'failed',
+          error: error.message
+        });
+      }
+    }
+
+    const successfulCount = processedResults.filter(r => r.status === 'sent').length;
+    const failedCount = processedResults.filter(r => r.status === 'failed').length;
+
+    console.log(`✅ Processing complete: ${successfulCount} sent, ${failedCount} failed`);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Scheduled notifications processed',
+      processed: processedResults.length,
+      successful: successfulCount,
+      failed: failedCount,
+      results: processedResults
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in process-scheduled-notifications function:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
+
+// Function to trigger IFTTT webhook
 async function triggerIFTTTWebhook(
   userId: string, 
   title: string, 
@@ -234,48 +308,69 @@ async function triggerIFTTTWebhook(
   }
 }
 
-      } catch (error) {
-        console.error(`Error processing notification ${notification.id}:`, error);
-        
-        // Mark as failed
-        await supabase
-          .from('scheduled_notifications')
-          .update({ 
-            status: 'failed',
-            error_message: error.message,
-            sent_at: new Date().toISOString()
-          })
-          .eq('id', notification.id);
-        
-        processedResults.push({
-          id: notification.id,
-          status: 'failed',
-          error: error.message
-        });
+// Function to trigger n8n webhook
+async function triggerN8NWebhook(
+  userId: string, 
+  title: string, 
+  body: string, 
+  data: any, 
+  customWebhookUrl?: string,
+  supabase?: any
+) {
+  try {
+    let webhookUrl = customWebhookUrl;
+    
+    // If no custom webhook URL provided, try to get it from user's API configurations
+    if (!webhookUrl && supabase) {
+      console.log('Looking up n8n webhook URL for user:', userId);
+      const { data: n8nConfig } = await supabase
+        .from('api_configurations')
+        .select('api_key')
+        .eq('user_id', userId)
+        .eq('service_name', 'n8n')
+        .single();
+      
+      if (n8nConfig?.api_key) {
+        webhookUrl = n8nConfig.api_key; // Store webhook URL in api_key field
       }
     }
 
-    const successfulCount = processedResults.filter(r => r.status === 'sent').length;
-    const failedCount = processedResults.filter(r => r.status === 'failed').length;
+    if (!webhookUrl) {
+      console.log('No n8n webhook URL configured for user');
+      return { success: false, error: 'No n8n webhook URL configured' };
+    }
 
-    console.log(`✅ Processing complete: ${successfulCount} sent, ${failedCount} failed`);
+    console.log('Triggering n8n webhook:', webhookUrl.substring(0, 50) + '...');
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Scheduled notifications processed',
-      processed: processedResults.length,
-      successful: successfulCount,
-      failed: failedCount,
-      results: processedResults
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const n8nPayload = {
+      title: title,
+      body: body,
+      data: data || {},
+      timestamp: new Date().toISOString(),
+      userId: userId,
+      source: 'lovable-push-notification'
+    };
+
+    const n8nResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(n8nPayload)
     });
+
+    console.log('n8n Response status:', n8nResponse.status);
+
+    if (n8nResponse.ok) {
+      return { success: true, status: n8nResponse.status };
+    } else {
+      const errorText = await n8nResponse.text();
+      console.error('n8n webhook failed:', errorText);
+      return { success: false, error: errorText };
+    }
 
   } catch (error) {
-    console.error('Error in process-scheduled-notifications function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error triggering n8n webhook:', error);
+    return { success: false, error: error.message };
   }
-});
+}
