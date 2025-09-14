@@ -234,19 +234,28 @@ const CalendarEvents = () => {
       return;
     }
 
+    console.log('fetchCalendars called, isCalendarManager:', isCalendarManager);
+    console.log('Current user ID:', user?.id);
+    console.log('Expected manager ID:', 'b7318f45-ae52-49f4-9db5-1662096679dd');
+
     setLoadingCalendars(true);
     try {
+      console.log('Calling list-google-calendars function...');
       const { data, error } = await supabase.functions.invoke('list-google-calendars');
+      
+      console.log('Function response:', { data, error });
       
       if (error) throw error;
       
       if (data?.calendars) {
+        console.log('Available calendars:', data.calendars);
         setCalendars(data.calendars);
         
         // Set current selection if we don't have one
         if (!selectedCalendarId && data.calendars.length > 0) {
           const primaryCalendar = data.calendars.find((cal: any) => cal.primary);
           if (primaryCalendar) {
+            console.log('Setting primary calendar as default:', primaryCalendar.id);
             setSelectedCalendarId(primaryCalendar.id);
           }
         }
@@ -255,6 +264,7 @@ const CalendarEvents = () => {
         if (selectedCalendarId) {
           const selectedCalendar = data.calendars.find((cal: any) => cal.id === selectedCalendarId);
           if (selectedCalendar) {
+            console.log('Found selected calendar name:', selectedCalendar.name);
             setSelectedCalendarName(selectedCalendar.name);
           }
         }

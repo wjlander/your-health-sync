@@ -68,7 +68,16 @@ serve(async (req) => {
       .eq('setting_key', 'selected_calendar_id')
       .single()
       
-    const selectedCalendarId = calendarSetting?.setting_value?.replace(/"/g, '') || 'primary'
+    let selectedCalendarId = 'primary';
+    if (calendarSetting?.setting_value) {
+      // Handle both old string format and new object format
+      if (typeof calendarSetting.setting_value === 'string') {
+        selectedCalendarId = calendarSetting.setting_value.replace(/"/g, '');
+      } else if (calendarSetting.setting_value && typeof calendarSetting.setting_value === 'object') {
+        const settingObj = calendarSetting.setting_value as { calendar_id?: string };
+        selectedCalendarId = settingObj.calendar_id || 'primary';
+      }
+    }
     console.log('Using shared calendar ID:', selectedCalendarId)
 
     // Use shared Google configuration from will@w-j-lander.uk
