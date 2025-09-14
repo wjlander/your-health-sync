@@ -84,6 +84,19 @@ const CalendarEvents = () => {
     }
 
     try {
+      setSyncing(true);
+      
+      // First clear all existing calendar events for all users
+      const { error: clearError } = await supabase
+        .from('calendar_events')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all events
+      
+      if (clearError) {
+        console.error('Error clearing events:', clearError);
+      }
+
+      // Update the shared calendar setting
       const { error } = await supabase
         .from('shared_calendar_settings')
         .update({
@@ -95,10 +108,27 @@ const CalendarEvents = () => {
       if (error) throw error;
 
       setSelectedCalendarId(calendarId);
-      toast({
-        title: "Calendar Updated",
-        description: "Calendar selection updated for all users.",
-      });
+      
+      // Automatically sync the new calendar
+      const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-google-calendar');
+      
+      if (syncError) throw syncError;
+      
+      if (syncData?.success) {
+        toast({
+          title: "Calendar Updated & Synced",
+          description: `Calendar switched and synced ${syncData.data?.newEvents || 0} events from the new calendar.`,
+        });
+      } else {
+        toast({
+          title: "Calendar Updated",
+          description: "Calendar selection updated. Manual sync may be needed.",
+        });
+      }
+      
+      // Refresh events display
+      fetchEvents();
+      
     } catch (error) {
       console.error('Error updating shared settings:', error);
       toast({
@@ -106,6 +136,8 @@ const CalendarEvents = () => {
         description: "Failed to update calendar settings.",
         variant: "destructive",
       });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -272,14 +304,14 @@ const CalendarEvents = () => {
                   </div>
                   <div className="flex space-x-2">
                     <Button 
-                      onClick={() => {
-                        updateSharedCalendarSetting(selectedCalendarId);
+                      onClick={async () => {
+                        await updateSharedCalendarSetting(selectedCalendarId);
                         setCalendarDialogOpen(false);
                       }}
-                      disabled={!selectedCalendarId}
+                      disabled={!selectedCalendarId || syncing}
                       className="flex-1"
                     >
-                      Update Shared Calendar
+                      {syncing ? 'Updating & Syncing...' : 'Update Shared Calendar'}
                     </Button>
                     <Button variant="outline" onClick={() => setCalendarDialogOpen(false)}>
                       Cancel
