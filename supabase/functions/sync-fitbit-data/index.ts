@@ -330,6 +330,8 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
           },
         }
       )
@@ -337,9 +339,11 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
       if (stepsResponse.ok) {
         const stepsData = await stepsResponse.json()
         console.log('Steps data received for', stepsData['activities-steps']?.length, 'days')
+        console.log('Full steps response:', JSON.stringify(stepsData, null, 2))
         
         if (stepsData['activities-steps']) {
           for (const daySteps of stepsData['activities-steps']) {
+            console.log(`Processing steps for ${daySteps.dateTime}: ${daySteps.value}`)
             if (daySteps.value) {
             const { error: insertError } = await supabase
               .from('health_data')
@@ -349,7 +353,7 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
                 data_type: 'steps',
                 value: parseInt(daySteps.value),
                 unit: 'steps',
-                metadata: { source: 'fitbit' }
+                metadata: { source: 'fitbit', syncedAt: new Date().toISOString() }
               }, {
                 onConflict: 'user_id,date,data_type'
               })
@@ -360,6 +364,59 @@ async function syncUserData(supabase: any, userId: string, accessToken: string) 
                   value: parseInt(daySteps.value), 
                   unit: 'steps',
                   date: daySteps.dateTime 
+                })
+              } else {
+                console.error(`Failed to insert steps for ${daySteps.dateTime}:`, insertError)
+              }
+            }
+          }
+        }
+        
+        // Also try to get today's steps specifically for more real-time data
+        console.log('Fetching today\'s steps specifically for real-time data...')
+        const todayStepsResponse = await fetch(
+          `https://api.fitbit.com/1/user/-/activities/steps/date/today.json`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            },
+          }
+        )
+        
+        if (todayStepsResponse.ok) {
+          const todayStepsData = await todayStepsResponse.json()
+          console.log('Today\'s steps response:', JSON.stringify(todayStepsData, null, 2))
+          
+          if (todayStepsData['activities-steps'] && todayStepsData['activities-steps'][0]) {
+            const todaySteps = todayStepsData['activities-steps'][0]
+            console.log(`Today's real-time steps: ${todaySteps.value} for ${todaySteps.dateTime}`)
+            
+            const { error: insertError } = await supabase
+              .from('health_data')
+              .upsert({
+                user_id: userId,
+                date: todaySteps.dateTime,
+                data_type: 'steps',
+                value: parseInt(todaySteps.value),
+                unit: 'steps',
+                metadata: { source: 'fitbit', syncedAt: new Date().toISOString(), realtime: true }
+              }, {
+                onConflict: 'user_id,date,data_type'
+              })
+              
+            if (!insertError) {
+              // Update the sync results with today's real-time data
+              const existingTodayIndex = syncResults.findIndex(r => r.date === todaySteps.dateTime && r.type === 'steps')
+              if (existingTodayIndex >= 0) {
+                syncResults[existingTodayIndex].value = parseInt(todaySteps.value)
+              } else {
+                syncResults.push({ 
+                  type: 'steps', 
+                  value: parseInt(todaySteps.value), 
+                  unit: 'steps',
+                  date: todaySteps.dateTime 
                 })
               }
             }
