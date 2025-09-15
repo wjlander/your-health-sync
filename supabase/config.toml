@@ -47,3 +47,33 @@ verify_jwt = true
 
 [functions.list-google-calendars]
 verify_jwt = true
+
+[functions.list-google-tasks]
+verify_jwt = true
+
+[functions.list-google-tasks-items]
+verify_jwt = true
+
+[functions.add-calendar-event]
+verify_jwt = true
+
+[functions.update-calendar-event]
+verify_jwt = true
+
+[functions.delete-calendar-event]
+verify_jwt = true
+
+[functions.create-task-reminder]
+verify_jwt = true
+
+[functions.register-fcm-token]
+verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = true
+
+[functions.process-scheduled-notifications]
+verify_jwt = false
+
+[functions.notify-me-alexa]
+verify_jwt = true

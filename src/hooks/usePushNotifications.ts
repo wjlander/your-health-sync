@@ -270,10 +270,66 @@ export const usePushNotifications = () => {
     }
   };
 
+  const sendNotifyMeNotification = async (
+    notification: string,
+    title?: string,
+    accessCode?: string
+  ): Promise<boolean> => {
+    try {
+      if (!accessCode) {
+        // Try to get access code from saved configuration
+        const { data } = await supabase
+          .from('api_configurations')
+          .select('api_key')
+          .eq('service_name', 'notify_me')
+          .eq('is_active', true)
+          .single();
+        
+        if (!data?.api_key) {
+          toast({
+            title: "Configuration Missing",
+            description: "Please configure your Notify Me access code in settings.",
+            variant: "destructive",
+          });
+          return false;
+        }
+        accessCode = data.api_key;
+      }
+
+      const { data, error } = await supabase.functions.invoke('notify-me-alexa', {
+        body: {
+          notification,
+          title,
+          accessCode
+        }
+      });
+
+      if (error) {
+        console.error('Error sending Notify Me notification:', error);
+        toast({
+          title: "Notification Failed",
+          description: "Failed to send Alexa notification.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      toast({
+        title: "Alexa Notification Sent",
+        description: "Notification sent to your Alexa device!",
+      });
+      return true;
+    } catch (error) {
+      console.error('Error sending Notify Me notification:', error);
+      return false;
+    }
+  };
+
   return {
     isInitialized,
     scheduleNotificationViaServer,
     sendImmediateNotification,
+    sendNotifyMeNotification,
     scheduleRoutineReminders
   };
 };

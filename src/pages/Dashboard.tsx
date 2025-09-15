@@ -17,6 +17,7 @@ import { UnitsPreference } from '@/components/UnitsPreference';
 import DashboardOverview from '@/components/DashboardOverview';
 import { CustomTrackers } from '@/components/CustomTrackers';
 import HomeAssistantConfiguration from '@/components/HomeAssistantConfiguration';
+import { NotifyMeConfiguration } from '@/components/NotifyMeConfiguration';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -183,6 +184,7 @@ const Dashboard = () => {
                 console.log('Units changed to:', units);
               }} />
               <HomeAssistantConfiguration />
+              <NotifyMeConfiguration />
               <ApiConfiguration />
             </div>
           </TabsContent>
