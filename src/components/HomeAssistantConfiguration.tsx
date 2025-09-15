@@ -173,12 +173,22 @@ const HomeAssistantConfiguration = () => {
 target:
   entity_id: media_player.your_echo_device
 data:
-  message: "{{ trigger.json.message }}"
+  message: "{{ trigger.json.message | default('No message') }}"
   data:
     type: tts`}</pre>
             </div>
-            <p>3. Replace "your_echo_device" with your actual Echo device entity</p>
-            <p>4. The webhook will send the message in the "message" field</p>
+            <p>3. Alternative if the above doesn't work:</p>
+            <div className="bg-background/50 p-2 rounded font-mono text-xs">
+              <pre>{`service: notify.alexa_media
+target:
+  entity_id: media_player.your_echo_device
+data:
+  message: "{{ trigger.json['message'] | default('No message') }}"
+  data:
+    type: tts`}</pre>
+            </div>
+            <p>4. Replace "your_echo_device" with your actual Echo device entity</p>
+            <p>5. Test the webhook below to verify the data structure</p>
           </div>
         </div>
 
