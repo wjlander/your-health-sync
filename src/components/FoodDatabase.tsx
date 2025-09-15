@@ -12,8 +12,11 @@ import {
   Database, 
   Apple, 
   Scan,
-  Info
+  Info,
+  ChefHat
 } from 'lucide-react';
+import AddFoodItemForm from './AddFoodItemForm';
+import AddRecipeForm from './AddRecipeForm';
 
 interface FoodItem {
   id: string;
@@ -38,6 +41,8 @@ export default function FoodDatabase() {
   const [searchResults, setSearchResults] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+  const [showAddFood, setShowAddFood] = useState(false);
+  const [showAddRecipe, setShowAddRecipe] = useState(false);
 
   const searchFoods = async (query: string) => {
     if (!query.trim()) {
@@ -243,10 +248,16 @@ export default function FoodDatabase() {
                 <p className="text-muted-foreground mb-4">
                   Try a different search term or add this food to the database
                 </p>
-                <Button variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add New Food
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowAddFood(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New Food
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowAddRecipe(true)}>
+                    <ChefHat className="h-4 w-4 mr-2" />
+                    Create Recipe
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -340,23 +351,62 @@ export default function FoodDatabase() {
         </Card>
       </div>
 
+      {/* Custom Forms */}
+      {showAddFood && (
+        <AddFoodItemForm
+          onFoodAdded={(food) => {
+            toast({
+              title: "Food Added",
+              description: `${food.name} has been added to the database`,
+            });
+            setShowAddFood(false);
+            // Refresh search if there was a query
+            if (searchQuery) {
+              searchFoods(searchQuery);
+            }
+          }}
+          onCancel={() => setShowAddFood(false)}
+        />
+      )}
+
+      {showAddRecipe && (
+        <AddRecipeForm
+          onRecipeAdded={(recipe) => {
+            toast({
+              title: "Recipe Created",
+              description: `${recipe.name} has been created successfully`,
+            });
+            setShowAddRecipe(false);
+          }}
+          onCancel={() => setShowAddRecipe(false)}
+        />
+      )}
+
       {/* Quick Add Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Add</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4">
-            <p className="text-muted-foreground mb-4">
-              Can't find what you're looking for? Add it to the database.
-            </p>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Food Item
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {!showAddFood && !showAddRecipe && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Custom Food & Recipes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-4">
+              <p className="text-muted-foreground mb-4">
+                Create your own food items and recipes to track custom meals.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={() => setShowAddFood(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Food Item
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddRecipe(true)}>
+                  <ChefHat className="h-4 w-4 mr-2" />
+                  Create Recipe
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
