@@ -144,3 +144,13 @@ All colors MUST be HSL.
     display: none; /* Chrome, Safari and Opera */
   }
 }
+
+/* Barcode scanner styles */
+.scanner-active {
+  --background: transparent;
+}
+
+html.scanner-active,
+body.scanner-active {
+  background: transparent !important;
+}

@@ -13,7 +13,8 @@ import {
   Apple, 
   Scan,
   Info,
-  ChefHat
+  ChefHat,
+  Camera
 } from 'lucide-react';
 import AddFoodItemForm from './AddFoodItemForm';
 import AddRecipeForm from './AddRecipeForm';
@@ -80,12 +81,27 @@ export default function FoodDatabase() {
 
   const scanBarcode = async () => {
     try {
-      // Simple barcode input for demo - in real app would use camera API
-      const barcode = prompt('Enter barcode number (or try: 3017620422003 for Nutella):');
-      if (!barcode) return;
-
       setLoading(true);
       
+      // For now, use manual input - will be replaced with camera scanning after proper Capacitor setup
+      const barcode = prompt('Enter barcode number (or try: 3017620422003 for Nutella):');
+      if (barcode) {
+        await processBarcode(barcode);
+      }
+    } catch (error) {
+      console.error('Barcode scan error:', error);
+      toast({
+        title: "Scan failed",
+        description: "Unable to scan barcode. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processBarcode = async (barcode: string) => {
+    try {
       // Try OpenFoodFacts API first
       const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
       const data = await response.json();
@@ -127,14 +143,12 @@ export default function FoodDatabase() {
         });
       }
     } catch (error) {
-      console.error('Barcode scan error:', error);
+      console.error('Barcode processing error:', error);
       toast({
-        title: "Scan failed",
-        description: "Unable to scan barcode. Please try again.",
+        title: "Processing failed",
+        description: "Unable to process barcode. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -173,8 +187,8 @@ export default function FoodDatabase() {
               Search
             </Button>
             <Button variant="outline" onClick={scanBarcode} disabled={loading}>
-              <Scan className="h-4 w-4 mr-2" />
-              Scan Barcode
+              <Camera className="h-4 w-4 mr-2" />
+              Scan with Camera
             </Button>
           </div>
           {searchQuery && (

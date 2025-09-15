@@ -16,8 +16,10 @@ import {
   Coffee, 
   Sun, 
   Moon, 
-  Clock
+  Clock,
+  Edit3
 } from 'lucide-react';
+import PortionEditor from './PortionEditor';
 
 interface MealPlan {
   id: string;
@@ -74,6 +76,18 @@ export default function MealPlanner() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editingPortion, setEditingPortion] = useState<{
+    itemId: string;
+    quantity: number;
+    unit: string;
+    foodName: string;
+    nutritionPer100g: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    };
+  } | null>(null);
 
   const fetchMealPlan = async (date: Date) => {
     if (!user) return;
@@ -242,6 +256,59 @@ export default function MealPlanner() {
     }
   };
 
+  const handlePortionEdit = (item: MealItem) => {
+    if (!item.food_item) return;
+    
+    setEditingPortion({
+      itemId: item.id,
+      quantity: item.quantity,
+      unit: item.unit,
+      foodName: item.food_item.name,
+      nutritionPer100g: {
+        calories: item.calories / (item.quantity / 100), // Reverse calculate per 100g
+        protein: 0, // We'd need this data from the food_item
+        carbs: 0,
+        fat: 0,
+      }
+    });
+  };
+
+  const handlePortionSave = async (quantity: number, unit: string) => {
+    if (!editingPortion) return;
+
+    try {
+      // Calculate new nutrition values based on new quantity
+      const multiplier = quantity / 100;
+      const newCalories = Math.round(editingPortion.nutritionPer100g.calories * multiplier);
+
+      const { error } = await supabase
+        .from('meal_items')
+        .update({
+          quantity,
+          unit,
+          calories: newCalories,
+        })
+        .eq('id', editingPortion.itemId);
+
+      if (error) throw error;
+
+      await fetchMealPlan(currentDate);
+      setEditingPortion(null);
+      
+      toast({
+        title: "Portion updated",
+        description: "Food portion has been updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating portion:', error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update portion size",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -368,8 +435,8 @@ export default function MealPlanner() {
                     {meal.meal_items?.length > 0 ? (
                       <div className="space-y-2">
                         {meal.meal_items.map((item: MealItem) => (
-                          <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                            <div>
+                          <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded group">
+                            <div className="flex-1">
                               <div className="font-medium">
                                 {item.food_item?.name || item.recipe?.name}
                               </div>
@@ -378,8 +445,18 @@ export default function MealPlanner() {
                                 {item.food_item?.brand && ` • ${item.food_item.brand}`}
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className="font-medium">{formatNutrition(item.calories)} cal</div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-right">
+                                <div className="font-medium">{formatNutrition(item.calories)} cal</div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handlePortionEdit(item)}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -395,6 +472,19 @@ export default function MealPlanner() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Portion Editor Dialog */}
+      {editingPortion && (
+        <PortionEditor
+          isOpen={!!editingPortion}
+          onClose={() => setEditingPortion(null)}
+          onSave={handlePortionSave}
+          currentQuantity={editingPortion.quantity}
+          currentUnit={editingPortion.unit}
+          foodName={editingPortion.foodName}
+          nutritionPer100g={editingPortion.nutritionPer100g}
+        />
       )}
     </div>
   );
