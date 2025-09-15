@@ -375,14 +375,18 @@ async function triggerHomeAssistantWebhook(
 
     console.log('Triggering Home Assistant webhook:', webhookUrl.substring(0, 50) + '...');
 
-    // Home Assistant webhook payload optimized for TTS
+    // Home Assistant webhook payload optimized for Alexa Media Player
     const homeAssistantPayload = {
       title: title,
-      message: body,
-      data: data || {},
+      message: `${title}. ${body}`, // Combined message for Alexa TTS
+      data: {
+        entity_id: "all", // Target all Alexa devices or specify specific ones
+        type: "tts", // Indicates this is for text-to-speech
+        method: "all", // Alexa Media Player method
+        ...(data || {})
+      },
       timestamp: new Date().toISOString(),
       user_id: userId,
-      tts_message: `${title}. ${body}`, // Combined message for text-to-speech
       source: 'lovable-routine-reminder'
     };
 

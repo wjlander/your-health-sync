@@ -98,11 +98,14 @@ const HomeAssistantConfiguration = () => {
     try {
       const testPayload = {
         title: "Test Notification",
-        message: "This is a test notification from Lovable",
-        data: {},
+        message: "Test Notification. This is a test notification from Lovable",
+        data: {
+          entity_id: "all",
+          type: "tts",
+          method: "all"
+        },
         timestamp: new Date().toISOString(),
         user_id: user?.id,
-        tts_message: "Test Notification. This is a test notification from Lovable",
         source: 'lovable-test'
       };
 
@@ -160,14 +163,23 @@ const HomeAssistantConfiguration = () => {
           </p>
         </div>
         
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-2">Setup Instructions:</h4>
-          <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-            <li>Create a webhook automation in Home Assistant</li>
-            <li>Use the webhook ID from your automation URL</li>
-            <li>Configure TTS service to announce on Alexa devices</li>
-            <li>Test the webhook below to verify it works</li>
-          </ol>
+        <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+          <h4 className="font-medium">Home Assistant Automation Setup:</h4>
+          <div className="text-sm text-muted-foreground space-y-2">
+            <p>1. Create a new automation in Home Assistant with webhook trigger</p>
+            <p>2. Add this action to call Alexa Media Player:</p>
+            <div className="bg-background/50 p-2 rounded font-mono text-xs">
+              <pre>{`service: notify.alexa_media
+target:
+  entity_id: media_player.your_echo_device
+data:
+  message: "{{ trigger.json.message }}"
+  data:
+    type: tts`}</pre>
+            </div>
+            <p>3. Replace "your_echo_device" with your actual Echo device entity</p>
+            <p>4. The webhook will send the message in the "message" field</p>
+          </div>
         </div>
 
         <div className="flex gap-2">
