@@ -157,12 +157,41 @@ const HomeAssistantConfiguration = () => {
         </div>
         
         <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-          <h4 className="font-medium">Official Alexa Devices Integration Setup:</h4>
+          <h4 className="font-medium">Easy Setup with Blueprint (Recommended):</h4>
           <div className="text-sm text-muted-foreground space-y-2">
             <p>1. Install the official <strong>Alexa Devices</strong> integration in Home Assistant</p>
             <p>2. Configure your Amazon account (requires MFA enabled)</p>
-            <p>3. Your Echo devices will appear as notification entities</p>
-            <p>4. Create an automation with webhook trigger to receive messages:</p>
+            <p>3. Download and import our blueprint for easy setup:</p>
+            <div className="flex gap-2 my-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = '/lovable-alexa-announcements-blueprint.yaml';
+                  link.download = 'lovable-alexa-announcements-blueprint.yaml';
+                  link.click();
+                }}
+              >
+                Download Blueprint
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => window.open('https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=', '_blank')}
+              >
+                Import to HA
+              </Button>
+            </div>
+            <p>4. Create a new automation using the blueprint and select your Alexa device</p>
+            <p>5. Save your Home Assistant base URL above and test below</p>
+          </div>
+        </div>
+        
+        <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+          <h4 className="font-medium">Manual Setup (Alternative):</h4>
+          <div className="text-sm text-muted-foreground space-y-2">
+            <p>If you prefer to create the automation manually:</p>
             <div className="bg-background/50 p-2 rounded font-mono text-xs">
               <pre>{`automation:
   - alias: "Lovable Alexa Announcements"
@@ -176,8 +205,7 @@ const HomeAssistantConfiguration = () => {
         target:
           entity_id: notify.your_echo_device_speak`}</pre>
             </div>
-            <p>5. Replace "your_echo_device" with your actual device name from the integration</p>
-            <p>6. Save your Home Assistant base URL above and test below</p>
+            <p>Replace "your_echo_device" with your actual device name from the integration</p>
           </div>
         </div>
 
