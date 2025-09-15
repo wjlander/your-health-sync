@@ -180,6 +180,68 @@ export default function MealPlanner() {
     return Math.round(value || 0);
   };
 
+  const pushToFitbit = async () => {
+    if (!mealPlan || !user) return;
+
+    try {
+      // Prepare meal data for Fitbit
+      const mealData = [];
+      
+      for (const meal of mealPlan.meals) {
+        for (const item of meal.meal_items || []) {
+          if (item.food_item) {
+            mealData.push({
+              foodName: item.food_item.name,
+              calories: item.calories,
+              quantity: item.quantity,
+              mealType: meal.meal_type,
+            });
+          }
+        }
+      }
+
+      if (mealData.length === 0) {
+        toast({
+          title: "No meals to sync",
+          description: "Add some food items to your meals first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`https://mgpzuralipywzhmczqhf.supabase.co/functions/v1/push-nutrition-to-fitbit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+        },
+        body: JSON.stringify({
+          mealData,
+          date: format(currentDate, 'yyyy-MM-dd'),
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        const successCount = result.results.filter(r => r.status === 'success').length;
+        toast({
+          title: "Fitbit sync completed",
+          description: `${successCount} items pushed to Fitbit successfully`,
+        });
+      } else {
+        throw new Error(result.error || 'Failed to sync with Fitbit');
+      }
+    } catch (error) {
+      console.error('Fitbit sync error:', error);
+      toast({
+        title: "Sync failed", 
+        description: "Failed to push meals to Fitbit. Check your Fitbit connection.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -236,11 +298,19 @@ export default function MealPlanner() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {/* Nutrition Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Nutrition Summary</CardTitle>
-            </CardHeader>
+      {/* Nutrition Summary */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Daily Nutrition Summary</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={pushToFitbit}
+            disabled={!mealPlan?.meals?.some(meal => meal.meal_items?.length > 0)}
+          >
+            Push to Fitbit
+          </Button>
+        </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">

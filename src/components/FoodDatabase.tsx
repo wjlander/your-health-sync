@@ -73,6 +73,66 @@ export default function FoodDatabase() {
     searchFoods(searchQuery);
   };
 
+  const scanBarcode = async () => {
+    try {
+      // Simple barcode input for demo - in real app would use camera API
+      const barcode = prompt('Enter barcode number (or try: 3017620422003 for Nutella):');
+      if (!barcode) return;
+
+      setLoading(true);
+      
+      // Try OpenFoodFacts API first
+      const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const data = await response.json();
+      
+      if (data.status === 1 && data.product) {
+        const product = data.product;
+        
+        // Create food item from barcode data
+        const newFood: Partial<FoodItem> = {
+          id: `barcode-${barcode}`,
+          name: product.product_name || 'Unknown Product',
+          brand: product.brands || undefined,
+          category: product.categories?.split(',')[0]?.trim() || undefined,
+          barcode: barcode,
+          calories_per_100g: product.nutriments?.['energy-kcal_100g'] || 0,
+          protein_per_100g: product.nutriments?.proteins_100g || 0,
+          carbs_per_100g: product.nutriments?.carbohydrates_100g || 0,
+          fat_per_100g: product.nutriments?.fat_100g || 0,
+          fiber_per_100g: product.nutriments?.fiber_100g || 0,
+          serving_size: product.serving_quantity ? parseFloat(product.serving_quantity) : undefined,
+          serving_unit: product.serving_quantity_unit || 'g',
+          is_user_created: true,
+        };
+
+        // Add to search results and select it
+        setSearchResults([newFood as FoodItem]);
+        setSelectedFood(newFood as FoodItem);
+        setSearchQuery(newFood.name || '');
+        
+        toast({
+          title: "Product found!",
+          description: `Found: ${newFood.name}`,
+        });
+      } else {
+        toast({
+          title: "Product not found",
+          description: "Try a different barcode or add the product manually",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Barcode scan error:', error);
+      toast({
+        title: "Scan failed",
+        description: "Unable to scan barcode. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
@@ -107,11 +167,16 @@ export default function FoodDatabase() {
               <Search className="h-4 w-4 mr-2" />
               Search
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={scanBarcode} disabled={loading}>
               <Scan className="h-4 w-4 mr-2" />
               Scan Barcode
             </Button>
           </div>
+          {searchQuery && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Try searching for: banana, chicken, oats, salmon, broccoli, or scan a barcode (try: 3017620422003)
+            </p>
+          )}
         </CardContent>
       </Card>
 

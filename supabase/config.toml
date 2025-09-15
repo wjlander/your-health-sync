@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.notify-me-alexa]
 verify_jwt = true
+
+[functions.push-nutrition-to-fitbit]
+verify_jwt = true
