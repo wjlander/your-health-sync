@@ -46,6 +46,7 @@ const RoutinesManager = () => {
     reminder_times: [] as string[],
     duration_days: 7,
     start_date: new Date().toISOString().split('T')[0],
+    homeAssistantWebhookUrl: '',
   });
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -237,6 +238,7 @@ const RoutinesManager = () => {
         reminder_times: [],
         duration_days: 7,
         start_date: new Date().toISOString().split('T')[0],
+        homeAssistantWebhookUrl: '',
       });
       setDialogOpen(false);
       fetchRoutines();
@@ -251,10 +253,21 @@ const RoutinesManager = () => {
             routine_type: newRoutine.routine_type,
             reminder_times: newRoutine.reminder_times
           };
-          await scheduleRoutineReminders(routineForNotification);
+          
+          const notificationOptions = newRoutine.homeAssistantWebhookUrl ? {
+            includeHomeAssistant: true,
+            homeAssistantWebhookUrl: newRoutine.homeAssistantWebhookUrl
+          } : undefined;
+          
+          await scheduleRoutineReminders(routineForNotification, notificationOptions);
+          
+          const message = newRoutine.homeAssistantWebhookUrl 
+            ? "Local and Home Assistant reminders have been scheduled!"
+            : "Local reminders have been scheduled on your device!";
+            
           toast({
             title: "Mobile Notifications Scheduled",
-            description: "Local reminders have been scheduled on your device!",
+            description: message,
           });
         } catch (error) {
           console.error('Error scheduling mobile notifications:', error);
@@ -555,6 +568,19 @@ const RoutinesManager = () => {
                       onChange={(e) => setNewRoutine({ ...newRoutine, start_date: e.target.value })}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="home-assistant-webhook">Home Assistant Webhook URL (Optional)</Label>
+                  <Input
+                    id="home-assistant-webhook"
+                    placeholder="http://your-ha-url:8123/api/webhook/your-webhook-id"
+                    value={newRoutine.homeAssistantWebhookUrl}
+                    onChange={(e) => setNewRoutine({ ...newRoutine, homeAssistantWebhookUrl: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Add your Home Assistant webhook URL to trigger TTS announcements on Alexa devices
+                  </p>
                 </div>
                 
                 <div className="flex space-x-2 pt-4 flex-shrink-0 border-t">

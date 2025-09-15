@@ -16,6 +16,7 @@ import { WeightGoals } from '@/components/WeightGoals';
 import { UnitsPreference } from '@/components/UnitsPreference';
 import DashboardOverview from '@/components/DashboardOverview';
 import { CustomTrackers } from '@/components/CustomTrackers';
+import HomeAssistantConfiguration from '@/components/HomeAssistantConfiguration';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -181,6 +182,7 @@ const Dashboard = () => {
                 // Units changed, this could trigger other components to refresh
                 console.log('Units changed to:', units);
               }} />
+              <HomeAssistantConfiguration />
               <ApiConfiguration />
             </div>
           </TabsContent>

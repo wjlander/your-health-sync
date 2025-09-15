@@ -121,6 +121,8 @@ export const usePushNotifications = () => {
       iftttWebhookUrl?: string;
       includeN8N?: boolean;
       n8nWebhookUrl?: string;
+      includeHomeAssistant?: boolean;
+      homeAssistantWebhookUrl?: string;
     }
   ) => {
     if (!isInitialized) {
@@ -146,7 +148,9 @@ export const usePushNotifications = () => {
           includeIFTTT: options?.includeIFTTT || false,
           iftttWebhookUrl: options?.iftttWebhookUrl,
           includeN8N: options?.includeN8N || false,
-          n8nWebhookUrl: options?.n8nWebhookUrl
+          n8nWebhookUrl: options?.n8nWebhookUrl,
+          includeHomeAssistant: options?.includeHomeAssistant || false,
+          homeAssistantWebhookUrl: options?.homeAssistantWebhookUrl
         }
       });
 
@@ -177,7 +181,14 @@ export const usePushNotifications = () => {
     }
   };
 
-  const scheduleRoutineReminders = async (routine: any) => {
+  const scheduleRoutineReminders = async (routine: any, options?: {
+    includeIFTTT?: boolean;
+    iftttWebhookUrl?: string;
+    includeN8N?: boolean;
+    n8nWebhookUrl?: string;
+    includeHomeAssistant?: boolean;
+    homeAssistantWebhookUrl?: string;
+  }) => {
     if (!routine.reminder_times || routine.reminder_times.length === 0) {
       return;
     }
@@ -200,7 +211,8 @@ export const usePushNotifications = () => {
           routine.title,
           `Time for your ${routine.routine_type} reminder: ${routine.description || routine.title}`,
           scheduleDate,
-          { routineId: routine.id, reminderTime }
+          { routineId: routine.id, reminderTime },
+          options
         );
       } catch (error) {
         console.error(`Error scheduling reminder for ${routine.title}:`, error);
@@ -217,6 +229,8 @@ export const usePushNotifications = () => {
       iftttWebhookUrl?: string;
       includeN8N?: boolean;
       n8nWebhookUrl?: string;
+      includeHomeAssistant?: boolean;
+      homeAssistantWebhookUrl?: string;
     }
   ) => {
     try {
@@ -229,7 +243,9 @@ export const usePushNotifications = () => {
           includeIFTTT: options?.includeIFTTT || false,
           iftttWebhookUrl: options?.iftttWebhookUrl,
           includeN8N: options?.includeN8N || false,
-          n8nWebhookUrl: options?.n8nWebhookUrl
+          n8nWebhookUrl: options?.n8nWebhookUrl,
+          includeHomeAssistant: options?.includeHomeAssistant || false,
+          homeAssistantWebhookUrl: options?.homeAssistantWebhookUrl
         }
       });
 

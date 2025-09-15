@@ -48,8 +48,8 @@ serve(async (req) => {
       });
     }
 
-    const { title, body, data, scheduleFor, immediate = false, includeIFTTT = false, iftttWebhookUrl, includeN8N = false, n8nWebhookUrl } = await req.json();
-    console.log('Request body:', { title, body, data, scheduleFor, immediate, includeIFTTT, includeN8N });
+    const { title, body, data, scheduleFor, immediate = false, includeIFTTT = false, iftttWebhookUrl, includeN8N = false, n8nWebhookUrl, includeHomeAssistant = false, homeAssistantWebhookUrl } = await req.json();
+    console.log('Request body:', { title, body, data, scheduleFor, immediate, includeIFTTT, includeN8N, includeHomeAssistant });
 
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'Title and body are required' }), {
@@ -131,12 +131,20 @@ serve(async (req) => {
         n8nResult = await triggerN8NWebhook(user.id, title, body, data, n8nWebhookUrl, supabase);
       }
 
+      // Also trigger Home Assistant webhook if requested
+      let homeAssistantResult = null;
+      if (includeHomeAssistant) {
+        console.log('Triggering Home Assistant webhook...');
+        homeAssistantResult = await triggerHomeAssistantWebhook(user.id, title, body, data, homeAssistantWebhookUrl, supabase);
+      }
+
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Immediate notification sent',
         results: results,
         iftttResult,
-        n8nResult
+        n8nResult,
+        homeAssistantResult
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -158,7 +166,9 @@ serve(async (req) => {
           includeIFTTT,
           iftttWebhookUrl: includeIFTTT ? iftttWebhookUrl : undefined,
           includeN8N,
-          n8nWebhookUrl: includeN8N ? n8nWebhookUrl : undefined
+          n8nWebhookUrl: includeN8N ? n8nWebhookUrl : undefined,
+          includeHomeAssistant,
+          homeAssistantWebhookUrl: includeHomeAssistant ? homeAssistantWebhookUrl : undefined
         },
         scheduled_for: scheduleFor,
       };
@@ -327,6 +337,75 @@ async function triggerN8NWebhook(
 
   } catch (error) {
     console.error('Error triggering n8n webhook:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to trigger Home Assistant webhook
+async function triggerHomeAssistantWebhook(
+  userId: string, 
+  title: string, 
+  body: string, 
+  data: any, 
+  customWebhookUrl?: string,
+  supabase?: any
+) {
+  try {
+    let webhookUrl = customWebhookUrl;
+    
+    // If no custom webhook URL provided, try to get it from user's API configurations
+    if (!webhookUrl && supabase) {
+      console.log('Looking up Home Assistant webhook URL for user:', userId);
+      const { data: homeAssistantConfig } = await supabase
+        .from('api_configurations')
+        .select('api_key')
+        .eq('user_id', userId)
+        .eq('service_name', 'home_assistant')
+        .single();
+      
+      if (homeAssistantConfig?.api_key) {
+        webhookUrl = homeAssistantConfig.api_key; // Store webhook URL in api_key field
+      }
+    }
+
+    if (!webhookUrl) {
+      console.log('No Home Assistant webhook URL configured for user');
+      return { success: false, error: 'No Home Assistant webhook URL configured' };
+    }
+
+    console.log('Triggering Home Assistant webhook:', webhookUrl.substring(0, 50) + '...');
+
+    // Home Assistant webhook payload optimized for TTS
+    const homeAssistantPayload = {
+      title: title,
+      message: body,
+      data: data || {},
+      timestamp: new Date().toISOString(),
+      user_id: userId,
+      tts_message: `${title}. ${body}`, // Combined message for text-to-speech
+      source: 'lovable-routine-reminder'
+    };
+
+    const homeAssistantResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(homeAssistantPayload)
+    });
+
+    console.log('Home Assistant Response status:', homeAssistantResponse.status);
+
+    if (homeAssistantResponse.ok) {
+      return { success: true, status: homeAssistantResponse.status };
+    } else {
+      const errorText = await homeAssistantResponse.text();
+      console.error('Home Assistant webhook failed:', errorText);
+      return { success: false, error: errorText };
+    }
+
+  } catch (error) {
+    console.error('Error triggering Home Assistant webhook:', error);
     return { success: false, error: error.message };
   }
 }
