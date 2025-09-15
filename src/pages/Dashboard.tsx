@@ -18,6 +18,9 @@ import DashboardOverview from '@/components/DashboardOverview';
 import { CustomTrackers } from '@/components/CustomTrackers';
 import HomeAssistantConfiguration from '@/components/HomeAssistantConfiguration';
 import { NotifyMeConfiguration } from '@/components/NotifyMeConfiguration';
+import MealPlanner from '@/components/MealPlanner';
+import NutritionTracker from '@/components/NutritionTracker';
+import FoodDatabase from '@/components/FoodDatabase';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -150,7 +153,30 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="health">
-            <HealthMetrics />
+            <Tabs defaultValue="metrics" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="metrics">Health Metrics</TabsTrigger>
+                <TabsTrigger value="meal-planner">Meal Planner</TabsTrigger>
+                <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
+                <TabsTrigger value="food-db">Food Database</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="metrics">
+                <HealthMetrics />
+              </TabsContent>
+              
+              <TabsContent value="meal-planner">
+                <MealPlanner />
+              </TabsContent>
+              
+              <TabsContent value="nutrition">
+                <NutritionTracker />
+              </TabsContent>
+              
+              <TabsContent value="food-db">
+                <FoodDatabase />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="trackers">
