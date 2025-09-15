@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.test-api-connection]
 verify_jwt = true
 
+[functions.test-home-assistant]
+verify_jwt = true
+
 [functions.fitbit-oauth-start]
 verify_jwt = true
 

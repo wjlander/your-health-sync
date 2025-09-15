@@ -96,41 +96,33 @@ const HomeAssistantConfiguration = () => {
 
     setTesting(true);
     try {
-      const testPayload = {
-        message: "Test announcement from Lovable. This is a test notification.",
-      };
-
-      // Handle both base URL and full webhook URL formats
-      let testUrl;
-      if (webhookUrl.includes('/api/webhook/')) {
-        // If it's already a full webhook URL, use it as-is but replace the webhook ID
-        const baseUrl = webhookUrl.split('/api/webhook/')[0];
-        testUrl = `${baseUrl}/api/webhook/lovable_alexa_announce`;
-      } else {
-        // If it's a base URL, append the webhook path
-        const cleanUrl = webhookUrl.replace(/\/$/, ''); // Remove trailing slash
-        testUrl = `${cleanUrl}/api/webhook/lovable_alexa_announce`;
-      }
-      
-      const response = await fetch(testUrl, {
-        method: 'POST',
+      const { data, error } = await supabase.functions.invoke('test-home-assistant', {
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(testPayload),
-        mode: 'no-cors' // Handle CORS issues for testing
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        }
       });
 
-      // With no-cors mode, we can't check response status, so just assume success
-      toast({
-        title: "Test Sent",
-        description: "Test announcement has been sent! Check your Alexa devices.",
-      });
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Test Successful",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Test Failed",
+          description: data?.error || "Unknown error occurred",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error testing webhook:', error);
       toast({
         title: "Test Failed",
-        description: "Failed to send test announcement. Make sure your Home Assistant is accessible and the automation is set up correctly.",
+        description: `Failed to test Home Assistant connection: ${error.message}`,
         variant: "destructive",
       });
     } finally {
