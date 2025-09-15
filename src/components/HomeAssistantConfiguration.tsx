@@ -47,7 +47,7 @@ const HomeAssistantConfiguration = () => {
     if (!user || !webhookUrl) {
       toast({
         title: "Error",
-        description: "Please enter a webhook URL",
+        description: "Please enter a Home Assistant URL",
         variant: "destructive",
       });
       return;
@@ -70,7 +70,7 @@ const HomeAssistantConfiguration = () => {
 
       toast({
         title: "Configuration Saved",
-        description: "Your Home Assistant webhook URL has been saved successfully",
+        description: "Your Home Assistant base URL has been saved successfully",
       });
     } catch (error) {
       console.error('Error saving Home Assistant configuration:', error);
@@ -88,7 +88,7 @@ const HomeAssistantConfiguration = () => {
     if (!webhookUrl) {
       toast({
         title: "Error",
-        description: "Please enter a webhook URL first",
+        description: "Please enter a Home Assistant URL first",
         variant: "destructive",
       });
       return;
@@ -97,19 +97,12 @@ const HomeAssistantConfiguration = () => {
     setTesting(true);
     try {
       const testPayload = {
-        title: "Test Notification",
-        message: "Test Notification. This is a test notification from Lovable",
-        data: {
-          entity_id: "all",
-          type: "tts",
-          method: "all"
-        },
-        timestamp: new Date().toISOString(),
-        user_id: user?.id,
-        source: 'lovable-test'
+        message: "Test announcement from Lovable. This is a test notification.",
       };
 
-      const response = await fetch(webhookUrl, {
+      const webhookTestUrl = `${webhookUrl}/api/webhook/lovable_alexa_announce`;
+      
+      const response = await fetch(webhookTestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +113,7 @@ const HomeAssistantConfiguration = () => {
       if (response.ok) {
         toast({
           title: "Test Successful",
-          description: "Test webhook sent successfully! Check your Home Assistant for the notification.",
+          description: "Test announcement sent successfully! Check your Alexa devices.",
         });
       } else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -129,7 +122,7 @@ const HomeAssistantConfiguration = () => {
       console.error('Error testing webhook:', error);
       toast({
         title: "Test Failed",
-        description: `Failed to send test webhook: ${error.message}`,
+        description: `Failed to send test announcement: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -145,50 +138,46 @@ const HomeAssistantConfiguration = () => {
           <span>Home Assistant Integration</span>
         </CardTitle>
         <CardDescription>
-          Configure Home Assistant webhook to trigger TTS announcements on Alexa devices
+          Configure Home Assistant Alexa Devices integration for TTS announcements
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="webhook-url">Webhook URL</Label>
+          <Label htmlFor="webhook-url">Home Assistant Base URL</Label>
           <Input
             id="webhook-url"
             type="url"
-            placeholder="http://your-ha-url:8123/api/webhook/your-webhook-id"
+            placeholder="http://your-ha-url:8123"
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
           />
           <p className="text-sm text-muted-foreground">
-            Example: http://h.ringing.org.uk:8123/api/webhook/-Xi1hEA37wspyrZFjm9C_ruR1
+            Example: http://h.ringing.org.uk:8123
           </p>
         </div>
         
         <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-          <h4 className="font-medium">Home Assistant Automation Setup:</h4>
+          <h4 className="font-medium">Official Alexa Devices Integration Setup:</h4>
           <div className="text-sm text-muted-foreground space-y-2">
-            <p>1. Create a new automation in Home Assistant with webhook trigger</p>
-            <p>2. Add this action to call Alexa Media Player:</p>
+            <p>1. Install the official <strong>Alexa Devices</strong> integration in Home Assistant</p>
+            <p>2. Configure your Amazon account (requires MFA enabled)</p>
+            <p>3. Your Echo devices will appear as notification entities</p>
+            <p>4. Create an automation with webhook trigger to receive messages:</p>
             <div className="bg-background/50 p-2 rounded font-mono text-xs">
-              <pre>{`service: notify.alexa_media
-target:
-  entity_id: media_player.your_echo_device
-data:
-  message: "{{ trigger.json.message | default('No message') }}"
-  data:
-    type: tts`}</pre>
+              <pre>{`automation:
+  - alias: "Lovable Alexa Announcements"
+    trigger:
+      - platform: webhook
+        webhook_id: lovable_alexa_announce
+    action:
+      - action: notify.send_message
+        data:
+          message: "{{ trigger.json.message }}"
+        target:
+          entity_id: notify.your_echo_device_speak`}</pre>
             </div>
-            <p>3. Alternative if the above doesn't work:</p>
-            <div className="bg-background/50 p-2 rounded font-mono text-xs">
-              <pre>{`service: notify.alexa_media
-target:
-  entity_id: media_player.your_echo_device
-data:
-  message: "{{ trigger.json['message'] | default('No message') }}"
-  data:
-    type: tts`}</pre>
-            </div>
-            <p>4. Replace "your_echo_device" with your actual Echo device entity</p>
-            <p>5. Test the webhook below to verify the data structure</p>
+            <p>5. Replace "your_echo_device" with your actual device name from the integration</p>
+            <p>6. Save your Home Assistant base URL above and test below</p>
           </div>
         </div>
 

@@ -351,11 +351,11 @@ async function triggerHomeAssistantWebhook(
   supabase?: any
 ) {
   try {
-    let webhookUrl = customWebhookUrl;
+    let baseUrl = customWebhookUrl;
     
-    // If no custom webhook URL provided, try to get it from user's API configurations
-    if (!webhookUrl && supabase) {
-      console.log('Looking up Home Assistant webhook URL for user:', userId);
+    // If no custom base URL provided, try to get it from user's API configurations
+    if (!baseUrl && supabase) {
+      console.log('Looking up Home Assistant base URL for user:', userId);
       const { data: homeAssistantConfig } = await supabase
         .from('api_configurations')
         .select('api_key')
@@ -364,30 +364,23 @@ async function triggerHomeAssistantWebhook(
         .single();
       
       if (homeAssistantConfig?.api_key) {
-        webhookUrl = homeAssistantConfig.api_key; // Store webhook URL in api_key field
+        baseUrl = homeAssistantConfig.api_key; // Store base URL in api_key field
       }
     }
 
-    if (!webhookUrl) {
-      console.log('No Home Assistant webhook URL configured for user');
-      return { success: false, error: 'No Home Assistant webhook URL configured' };
+    if (!baseUrl) {
+      console.log('No Home Assistant base URL configured for user');
+      return { success: false, error: 'No Home Assistant base URL configured' };
     }
 
-    console.log('Triggering Home Assistant webhook:', webhookUrl.substring(0, 50) + '...');
+    // Construct the webhook URL for the official Alexa Devices integration
+    const webhookUrl = `${baseUrl}/api/webhook/lovable_alexa_announce`;
+    
+    console.log('Triggering Home Assistant webhook:', webhookUrl);
 
-    // Home Assistant webhook payload optimized for Alexa Media Player
+    // Simplified payload for official Alexa Devices integration
     const homeAssistantPayload = {
-      title: title,
-      message: `${title}. ${body}`, // Combined message for Alexa TTS
-      data: {
-        entity_id: "all", // Target all Alexa devices or specify specific ones
-        type: "tts", // Indicates this is for text-to-speech
-        method: "all", // Alexa Media Player method
-        ...(data || {})
-      },
-      timestamp: new Date().toISOString(),
-      user_id: userId,
-      source: 'lovable-routine-reminder'
+      message: `${title}. ${body}` // Simple message field for TTS
     };
 
     const homeAssistantResponse = await fetch(webhookUrl, {
@@ -396,6 +389,7 @@ async function triggerHomeAssistantWebhook(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(homeAssistantPayload)
+    });
     });
 
     console.log('Home Assistant Response status:', homeAssistantResponse.status);
