@@ -390,7 +390,6 @@ async function triggerHomeAssistantWebhook(
       },
       body: JSON.stringify(homeAssistantPayload)
     });
-    });
 
     console.log('Home Assistant Response status:', homeAssistantResponse.status);
 
