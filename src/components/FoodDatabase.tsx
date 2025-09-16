@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { 
   Search, 
   Plus, 
@@ -83,18 +84,42 @@ export default function FoodDatabase() {
     try {
       setLoading(true);
       
-      // For now, use manual input - will be replaced with camera scanning after proper Capacitor setup
+      // Check camera permission first
+      const status = await BarcodeScanner.checkPermission({ force: true });
+      
+      if (status.granted) {
+        // Hide background and show camera
+        document.body.classList.add('scanner-active');
+        BarcodeScanner.hideBackground();
+        
+        // Start scanning
+        const result = await BarcodeScanner.startScan();
+        
+        // Show background again
+        BarcodeScanner.showBackground();
+        document.body.classList.remove('scanner-active');
+        
+        if (result.hasContent) {
+          await processBarcode(result.content);
+        }
+      } else {
+        // Fallback to manual input if permission denied
+        const barcode = prompt('Enter barcode number (or try: 3017620422003 for Nutella):');
+        if (barcode) {
+          await processBarcode(barcode);
+        }
+      }
+    } catch (error) {
+      console.error('Barcode scan error:', error);
+      // Show background again in case of error
+      BarcodeScanner.showBackground();
+      document.body.classList.remove('scanner-active');
+      
+      // Fallback to manual input on error
       const barcode = prompt('Enter barcode number (or try: 3017620422003 for Nutella):');
       if (barcode) {
         await processBarcode(barcode);
       }
-    } catch (error) {
-      console.error('Barcode scan error:', error);
-      toast({
-        title: "Scan failed",
-        description: "Unable to scan barcode. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }

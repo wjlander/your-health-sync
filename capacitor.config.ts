@@ -12,6 +12,14 @@ const config: CapacitorConfig = {
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]
+    },
+    BarcodeScanner: {
+      // Enable camera permissions
+      "android": {
+        "permissions": [
+          "CAMERA"
+        ]
+      }
     }
   }
 };
