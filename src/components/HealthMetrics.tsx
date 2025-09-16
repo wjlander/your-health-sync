@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Activity, Heart, Moon, Footprints, Zap, RefreshCw, Scale } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Activity, Heart, Moon, Footprints, Zap, RefreshCw, Scale, MoreVertical } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { UnitsType, convertWeight, convertTemperature, getWeightUnit, getTemperatureUnit } from './UnitsPreference';
 
@@ -19,6 +26,7 @@ interface HealthData {
 
 const HealthMetrics = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [healthData, setHealthData] = useState<HealthData[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -177,18 +185,39 @@ const HealthMetrics = () => {
           <h2 className="text-2xl font-bold">Health Metrics</h2>
           <p className="text-muted-foreground">Track your fitness and wellness data</p>
         </div>
-        <Button
-          onClick={syncFitbitData}
-          disabled={syncing}
-          className="bg-health-primary hover:bg-health-secondary"
-        >
-          {syncing ? (
-            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          {syncing ? 'Syncing...' : 'Sync Fitbit'}
-        </Button>
+        
+        {isMobile ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={syncFitbitData} disabled={syncing}>
+                {syncing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {syncing ? 'Syncing...' : 'Sync Fitbit'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            onClick={syncFitbitData}
+            disabled={syncing}
+            className="bg-health-primary hover:bg-health-secondary"
+          >
+            {syncing ? (
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {syncing ? 'Syncing...' : 'Sync Fitbit'}
+          </Button>
+        )}
       </div>
 
       {loading ? (
