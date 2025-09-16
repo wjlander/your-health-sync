@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   AlertTriangle
  } from 'lucide-react';
+import MealTimeBadges from './MealTimeBadges';
 
 interface Recipe {
   id: string;
@@ -25,6 +26,7 @@ interface Recipe {
   difficulty: string;
   is_public: boolean;
   is_out_of_stock?: boolean;
+  preferred_meal_times?: string[];
   user_id: string;
 }
 
@@ -296,6 +298,11 @@ export default function RecipeManager() {
                             </Badge>
                           )}
                         </div>
+                        {recipe.preferred_meal_times && recipe.preferred_meal_times.length < 4 && (
+                          <div className="mt-2">
+                            <MealTimeBadges mealTimes={recipe.preferred_meal_times} />
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-sm text-muted-foreground">
@@ -347,6 +354,12 @@ export default function RecipeManager() {
                       </Badge>
                     )}
                   </div>
+                  {selectedRecipe.preferred_meal_times && selectedRecipe.preferred_meal_times.length < 4 && (
+                    <div className="mt-3">
+                      <div className="text-sm font-medium mb-2">Preferred Meal Times:</div>
+                      <MealTimeBadges mealTimes={selectedRecipe.preferred_meal_times} size="md" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

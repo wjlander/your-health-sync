@@ -145,6 +145,7 @@ export type Database = {
           is_user_created: boolean | null
           name: string
           nutritional_data: Json | null
+          preferred_meal_times: string[] | null
           protein_per_100g: number | null
           serving_size: number | null
           serving_unit: string | null
@@ -168,6 +169,7 @@ export type Database = {
           is_user_created?: boolean | null
           name: string
           nutritional_data?: Json | null
+          preferred_meal_times?: string[] | null
           protein_per_100g?: number | null
           serving_size?: number | null
           serving_unit?: string | null
@@ -191,6 +193,7 @@ export type Database = {
           is_user_created?: boolean | null
           name?: string
           nutritional_data?: Json | null
+          preferred_meal_times?: string[] | null
           protein_per_100g?: number | null
           serving_size?: number | null
           serving_unit?: string | null
@@ -524,6 +527,7 @@ export type Database = {
           is_out_of_stock: boolean | null
           is_public: boolean | null
           name: string
+          preferred_meal_times: string[] | null
           prep_time: number | null
           servings: number | null
           tags: string[] | null
@@ -541,6 +545,7 @@ export type Database = {
           is_out_of_stock?: boolean | null
           is_public?: boolean | null
           name: string
+          preferred_meal_times?: string[] | null
           prep_time?: number | null
           servings?: number | null
           tags?: string[] | null
@@ -558,6 +563,7 @@ export type Database = {
           is_out_of_stock?: boolean | null
           is_public?: boolean | null
           name?: string
+          preferred_meal_times?: string[] | null
           prep_time?: number | null
           servings?: number | null
           tags?: string[] | null

@@ -19,6 +19,7 @@ import {
   Clock,
   Users
 } from 'lucide-react';
+import MealTimeSelector from './MealTimeSelector';
 
 interface FoodItem {
   id: string;
@@ -29,6 +30,7 @@ interface FoodItem {
   carbs_per_100g?: number;
   fat_per_100g?: number;
   is_out_of_stock?: boolean;
+  preferred_meal_times?: string[];
 }
 
 interface Ingredient {
@@ -63,6 +65,7 @@ export default function AddRecipeForm({ onRecipeAdded, onCancel }: AddRecipeForm
     is_public: false,
     tags: '',
   });
+  const [selectedMealTimes, setSelectedMealTimes] = useState<string[]>(['breakfast', 'lunch', 'dinner', 'snack']);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [showIngredientSearch, setShowIngredientSearch] = useState(false);
@@ -158,6 +161,7 @@ export default function AddRecipeForm({ onRecipeAdded, onCancel }: AddRecipeForm
         difficulty: formData.difficulty,
         is_public: formData.is_public,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : null,
+        preferred_meal_times: selectedMealTimes,
         user_id: user.id,
       };
 
@@ -202,6 +206,7 @@ export default function AddRecipeForm({ onRecipeAdded, onCancel }: AddRecipeForm
         tags: '',
       });
       setIngredients([]);
+      setSelectedMealTimes(['breakfast', 'lunch', 'dinner', 'snack']);
 
       onRecipeAdded?.(recipe);
     } catch (error) {
@@ -446,6 +451,11 @@ export default function AddRecipeForm({ onRecipeAdded, onCancel }: AddRecipeForm
               <Label htmlFor="public">Make recipe public</Label>
             </div>
           </div>
+
+          <MealTimeSelector
+            selectedMealTimes={selectedMealTimes}
+            onMealTimesChange={setSelectedMealTimes}
+          />
 
           <div className="flex gap-2">
             <Button type="submit" disabled={loading} className="flex-1">

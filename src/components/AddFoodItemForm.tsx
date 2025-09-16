@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, Save } from 'lucide-react';
+import MealTimeSelector from './MealTimeSelector';
 
 interface AddFoodItemFormProps {
   onFoodAdded?: (food: any) => void;
@@ -34,6 +35,7 @@ export default function AddFoodItemForm({ onFoodAdded, onCancel }: AddFoodItemFo
     serving_size: '',
     serving_unit: 'g',
   });
+  const [selectedMealTimes, setSelectedMealTimes] = useState<string[]>(['breakfast', 'lunch', 'dinner', 'snack']);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -69,6 +71,7 @@ export default function AddFoodItemForm({ onFoodAdded, onCancel }: AddFoodItemFo
         sodium_per_100mg: formData.sodium_per_100mg ? parseFloat(formData.sodium_per_100mg) : null,
         serving_size: formData.serving_size ? parseFloat(formData.serving_size) : null,
         serving_unit: formData.serving_unit,
+        preferred_meal_times: selectedMealTimes,
         created_by: user.id,
         is_user_created: true,
       };
@@ -102,6 +105,7 @@ export default function AddFoodItemForm({ onFoodAdded, onCancel }: AddFoodItemFo
         serving_size: '',
         serving_unit: 'g',
       });
+      setSelectedMealTimes(['breakfast', 'lunch', 'dinner', 'snack']);
 
       onFoodAdded?.(data);
     } catch (error) {
@@ -296,6 +300,11 @@ export default function AddFoodItemForm({ onFoodAdded, onCancel }: AddFoodItemFo
               </div>
             </div>
           </div>
+
+          <MealTimeSelector
+            selectedMealTimes={selectedMealTimes}
+            onMealTimesChange={setSelectedMealTimes}
+          />
 
           <div className="flex gap-2">
             <Button type="submit" disabled={loading} className="flex-1">

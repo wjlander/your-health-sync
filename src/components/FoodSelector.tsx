@@ -14,6 +14,7 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import MealTimeBadges from './MealTimeBadges';
 
 interface FoodItem {
   id: string;
@@ -25,6 +26,7 @@ interface FoodItem {
   carbs_per_100g?: number;
   fat_per_100g?: number;
   is_out_of_stock?: boolean;
+  preferred_meal_times?: string[];
 }
 
 interface Recipe {
@@ -33,6 +35,7 @@ interface Recipe {
   description?: string;
   servings: number;
   is_out_of_stock?: boolean;
+  preferred_meal_times?: string[];
 }
 
 interface FoodSelectorProps {
@@ -61,8 +64,9 @@ export default function FoodSelector({ isOpen, onClose, onFoodSelected, mealType
       if (selectedTab === 'foods') {
         const { data, error } = await supabase
           .from('food_items')
-          .select('id, name, brand, category, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, is_out_of_stock')
+          .select('id, name, brand, category, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, is_out_of_stock, preferred_meal_times')
           .eq('is_out_of_stock', false) // Only show in-stock items
+          .contains('preferred_meal_times', mealType ? [mealType] : ['breakfast', 'lunch', 'dinner', 'snack']) // Filter by meal time
           .ilike('name', `%${query}%`)
           .order('name', { ascending: true })
           .limit(20);
@@ -72,8 +76,9 @@ export default function FoodSelector({ isOpen, onClose, onFoodSelected, mealType
       } else {
         const { data, error } = await supabase
           .from('recipes')
-          .select('id, name, description, servings, is_out_of_stock')
+          .select('id, name, description, servings, is_out_of_stock, preferred_meal_times')
           .eq('is_out_of_stock', false) // Only show in-stock recipes
+          .contains('preferred_meal_times', mealType ? [mealType] : ['breakfast', 'lunch', 'dinner', 'snack']) // Filter by meal time
           .ilike('name', `%${query}%`)
           .order('name', { ascending: true })
           .limit(20);
@@ -203,6 +208,11 @@ export default function FoodSelector({ isOpen, onClose, onFoodSelected, mealType
                             </Badge>
                           )}
                         </div>
+                        {item.preferred_meal_times && item.preferred_meal_times.length < 4 && (
+                          <div className="mt-2">
+                            <MealTimeBadges mealTimes={item.preferred_meal_times} />
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         {'calories_per_100g' in item && (

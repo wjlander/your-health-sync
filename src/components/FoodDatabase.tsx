@@ -15,10 +15,15 @@ import {
   Scan,
   Info,
   ChefHat,
-  Camera
+  Camera,
+  Coffee,
+  Sun,
+  Moon,
+  Clock
 } from 'lucide-react';
 import AddFoodItemForm from './AddFoodItemForm';
 import AddRecipeForm from './AddRecipeForm';
+import MealTimeBadges from './MealTimeBadges';
 
 interface FoodItem {
   id: string;
@@ -35,6 +40,7 @@ interface FoodItem {
   serving_unit?: string;
   is_user_created: boolean;
   is_out_of_stock?: boolean;
+  preferred_meal_times?: string[];
 }
 
 export default function FoodDatabase() {
@@ -379,6 +385,11 @@ export default function FoodDatabase() {
                             </Badge>
                           )}
                         </div>
+                        {food.preferred_meal_times && food.preferred_meal_times.length < 4 && (
+                          <div className="mt-2">
+                            <MealTimeBadges mealTimes={food.preferred_meal_times} />
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="font-medium">

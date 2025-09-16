@@ -22,6 +22,7 @@ import MealPlanner from '@/components/MealPlanner';
 import NutritionTracker from '@/components/NutritionTracker';
 import FoodDatabase from '@/components/FoodDatabase';
 import RecipeManager from '@/components/RecipeManager';
+import RandomMealGenerator from '@/components/RandomMealGenerator';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -155,12 +156,13 @@ const Dashboard = () => {
 
           <TabsContent value="health">
             <Tabs defaultValue="metrics" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="metrics">Health Metrics</TabsTrigger>
                 <TabsTrigger value="meal-planner">Meal Planner</TabsTrigger>
                 <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
                 <TabsTrigger value="food-db">Food Database</TabsTrigger>
                 <TabsTrigger value="recipes">Recipe Manager</TabsTrigger>
+                <TabsTrigger value="random-meals">Random Meals</TabsTrigger>
               </TabsList>
               
               <TabsContent value="metrics">
@@ -181,6 +183,10 @@ const Dashboard = () => {
               
               <TabsContent value="recipes">
                 <RecipeManager />
+              </TabsContent>
+
+              <TabsContent value="random-meals">
+                <RandomMealGenerator />
               </TabsContent>
             </Tabs>
           </TabsContent>
