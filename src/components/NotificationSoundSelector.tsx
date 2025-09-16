@@ -1,50 +1,33 @@
 import { useNotificationSound } from "@/hooks/useNotificationSound";
-import { useNotifications } from "@/hooks/useNotifications";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Volume2, Play, Upload, Trash2 } from "lucide-react";
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { useToast } from "@/hooks/use-toast";
 import { useRef, useState } from "react";
 
 export const NotificationSoundSelector = () => {
   const { selectedSound, updateSound, availableSounds, uploadCustomSound, deleteCustomSound } = useNotificationSound();
-  const { scheduleNotification, cancelNotification } = useNotifications();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
   const testSound = async () => {
-    if (!scheduleNotification) return;
-    
-    // Cancel any existing test notifications first
+    // Play the sound directly in the browser
     try {
-      await cancelNotification(999999);
-    } catch (error) {
-      // Ignore errors when cancelling
-    }
-    
-    // Schedule a test notification for 2 seconds from now
-    const testDate = new Date(Date.now() + 2000);
-    const success = await scheduleNotification(
-      999999, // Use a unique ID for test notifications
-      "🔔 Sound Test",
-      `Testing "${selectedSound.name}" notification sound`,
-      testDate
-    );
-    
-    if (success) {
+      const soundUrl = selectedSound.url || `/sounds/${selectedSound.filename}.wav`;
+      const audio = new Audio(soundUrl);
+      await audio.play();
       toast({
-        title: "Test Scheduled",
-        description: `Testing ${selectedSound.name} sound in 2 seconds...`,
+        title: "Sound Test",
+        description: `Playing "${selectedSound.name}" sound`,
       });
-    } else {
+    } catch (error) {
       toast({
         title: "Test Failed",
-        description: "Could not schedule test notification",
+        description: "Could not play the sound. Check your browser permissions.",
         variant: "destructive",
       });
     }
@@ -183,11 +166,8 @@ export const NotificationSoundSelector = () => {
 
           <div className="space-y-2">
             <Label htmlFor="sound-upload" className="text-sm font-medium">
-              Upload Custom Sound (Web only - not supported in mobile app)
+              Upload Custom Sound
             </Label>
-            <div className="text-xs text-muted-foreground mb-2">
-              Custom sounds work in web browser but are not supported in the Android/iOS mobile app due to platform limitations.
-            </div>
             <div className="flex gap-2">
               <Input
                 id="sound-upload"
@@ -209,13 +189,13 @@ export const NotificationSoundSelector = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Upload WAV, MP3, OGG, or M4A files (max 5MB) - Web browser only
+              Upload WAV, MP3, OGG, or M4A files (max 5MB)
             </p>
           </div>
         </div>
         
         <p className="text-xs text-muted-foreground">
-          The test notification will appear in 2 seconds after clicking "Test Sound"
+          The sound will play immediately when you click "Test Sound"
         </p>
       </CardContent>
     </Card>

@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { Target, Clock, RefreshCw, Plus, Play, Pause, Trash2, Edit, Bell } from 'lucide-react';
+import { Target, Clock, RefreshCw, Plus, Play, Pause, Trash2, Edit } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface Routine {
@@ -30,7 +29,6 @@ interface Routine {
 
 const RoutinesManager = () => {
   const { user } = useAuth();
-  const { isInitialized, scheduleRoutineReminders } = usePushNotifications();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -243,36 +241,7 @@ const RoutinesManager = () => {
       setDialogOpen(false);
       fetchRoutines();
 
-      // Schedule mobile notifications for the new routine if it has reminder times
-      if (newRoutine.reminder_times && newRoutine.reminder_times.length > 0) {
-        try {
-          const routineForNotification = {
-            id: `temp-${Date.now()}`, // Temporary ID for notification scheduling
-            title: newRoutine.title,
-            description: newRoutine.description,
-            routine_type: newRoutine.routine_type,
-            reminder_times: newRoutine.reminder_times
-          };
-          
-          const notificationOptions = newRoutine.homeAssistantWebhookUrl ? {
-            includeHomeAssistant: true,
-            homeAssistantWebhookUrl: newRoutine.homeAssistantWebhookUrl
-          } : undefined;
-          
-          await scheduleRoutineReminders(routineForNotification, notificationOptions);
-          
-          const message = newRoutine.homeAssistantWebhookUrl 
-            ? "Local and Home Assistant reminders have been scheduled!"
-            : "Local reminders have been scheduled on your device!";
-            
-          toast({
-            title: "Mobile Notifications Scheduled",
-            description: message,
-          });
-        } catch (error) {
-          console.error('Error scheduling mobile notifications:', error);
-        }
-      }
+      // Note: Mobile notifications would be handled by server-side scheduling in production
     } catch (error) {
       console.error('Error creating routine:', error);
       toast({
@@ -405,30 +374,6 @@ const RoutinesManager = () => {
           <p className="text-muted-foreground">Manage your wellness reminders</p>
         </div>
         <div className="flex space-x-2">
-          <Button
-            onClick={async () => {
-              try {
-                // Schedule notifications for all active routines
-                for (const routine of routines.filter(r => r.is_active)) {
-                  await scheduleRoutineReminders(routine);
-                }
-                toast({
-                  title: "Mobile Notifications Scheduled",
-                  description: "All routine reminders have been scheduled on your device!",
-                });
-              } catch (error) {
-                toast({
-                  title: "Error",
-                  description: "Failed to schedule mobile notifications",
-                  variant: "destructive",
-                });
-              }
-            }}
-            variant="outline"
-          >
-            <Bell className="h-4 w-4 mr-2" />
-            Setup Mobile Alerts
-          </Button>
           
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
