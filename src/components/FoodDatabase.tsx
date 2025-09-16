@@ -25,23 +25,30 @@ import AddFoodItemForm from './AddFoodItemForm';
 import AddRecipeForm from './AddRecipeForm';
 import MealTimeBadges from './MealTimeBadges';
 
-interface FoodItem {
+type FoodItem = {
   id: string;
   name: string;
-  brand?: string;
-  category?: string;
-  barcode?: string;
-  calories_per_100g?: number;
-  protein_per_100g?: number;
-  carbs_per_100g?: number;
-  fat_per_100g?: number;
-  fiber_per_100g?: number;
-  serving_size?: number;
-  serving_unit?: string;
+  brand?: string | null;
+  category?: string | null;
+  barcode?: string | null;
+  calories_per_100g?: number | null;
+  protein_per_100g?: number | null;
+  carbs_per_100g?: number | null;
+  fat_per_100g?: number | null;
+  fiber_per_100g?: number | null;
+  sugar_per_100g?: number | null;
+  sodium_per_100mg?: number | null;
+  serving_size?: number | null;
+  serving_unit?: string | null;
+  nutritional_data?: any | null;
+  image_url?: string | null;
   is_user_created: boolean;
-  is_out_of_stock?: boolean;
-  preferred_meal_times?: string[];
-}
+  is_out_of_stock?: boolean | null;
+  preferred_meal_times?: string[] | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  created_by?: string | null;
+};
 
 export default function FoodDatabase() {
   const { user } = useAuth();
@@ -62,6 +69,7 @@ export default function FoodDatabase() {
     try {
       setLoading(true);
       
+      // First search local database
       const { data, error } = await supabase
         .from('food_items')
         .select('*')
@@ -70,7 +78,28 @@ export default function FoodDatabase() {
         .limit(20);
 
       if (error) throw error;
-      setSearchResults(data || []);
+      
+      let results = data || [];
+      
+      // If no results in local database, search OpenFoodFacts
+      if (results.length === 0) {
+        try {
+          const openFoodFactsResults = await searchOpenFoodFacts(query);
+          results = openFoodFactsResults as any;
+          
+          if (openFoodFactsResults.length > 0) {
+            toast({
+              title: "Results from OpenFoodFacts",
+              description: `Found ${openFoodFactsResults.length} products from OpenFoodFacts database`,
+            });
+          }
+        } catch (offError) {
+          console.error('OpenFoodFacts search failed:', offError);
+          // Continue with empty results if OpenFoodFacts fails
+        }
+      }
+      
+      setSearchResults(results);
     } catch (error) {
       console.error('Error searching foods:', error);
       toast({
@@ -81,6 +110,43 @@ export default function FoodDatabase() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const searchOpenFoodFacts = async (query: string): Promise<FoodItem[]> => {
+    const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`);
+    const data = await response.json();
+    
+    if (!data.products) {
+      return [];
+    }
+    
+    return data.products
+      .filter((product: any) => product.product_name && product.nutriments)
+      .map((product: any, index: number): FoodItem => ({
+        id: `openfoodfacts-${product.id || Date.now() + index}`,
+        name: product.product_name || 'Unknown Product',
+        brand: product.brands || null,
+        category: product.categories?.split(',')[0]?.trim() || null,
+        barcode: product.code || null,
+        calories_per_100g: product.nutriments?.['energy-kcal_100g'] || product.nutriments?.energy_kcal || 0,
+        protein_per_100g: product.nutriments?.proteins_100g || product.nutriments?.proteins || 0,
+        carbs_per_100g: product.nutriments?.carbohydrates_100g || product.nutriments?.carbohydrates || 0,
+        fat_per_100g: product.nutriments?.fat_100g || product.nutriments?.fat || 0,
+        fiber_per_100g: product.nutriments?.fiber_100g || product.nutriments?.fiber || 0,
+        sugar_per_100g: product.nutriments?.sugars_100g || product.nutriments?.sugars || 0,
+        sodium_per_100mg: product.nutriments?.sodium_100g ? product.nutriments.sodium_100g * 10 : 0, // Convert to per 100mg
+        serving_size: product.serving_quantity ? parseFloat(product.serving_quantity) : null,
+        serving_unit: product.serving_quantity_unit || 'g',
+        nutritional_data: null,
+        image_url: product.image_url || null,
+        is_user_created: false,
+        is_out_of_stock: false,
+        preferred_meal_times: ['breakfast', 'lunch', 'dinner', 'snack'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: null,
+      }))
+      .slice(0, 10);
   };
 
   const handleSearch = () => {
