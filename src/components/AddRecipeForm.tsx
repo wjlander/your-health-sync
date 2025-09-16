@@ -28,6 +28,7 @@ interface FoodItem {
   protein_per_100g?: number;
   carbs_per_100g?: number;
   fat_per_100g?: number;
+  is_out_of_stock?: boolean;
 }
 
 interface Ingredient {
@@ -77,7 +78,8 @@ export default function AddRecipeForm({ onRecipeAdded, onCancel }: AddRecipeForm
       
       const { data, error } = await supabase
         .from('food_items')
-        .select('id, name, brand, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
+        .select('id, name, brand, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, is_out_of_stock')
+        .eq('is_out_of_stock', false) // Only show in-stock items
         .ilike('name', `%${query}%`)
         .order('name', { ascending: true })
         .limit(10);

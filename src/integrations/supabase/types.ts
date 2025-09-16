@@ -141,6 +141,7 @@ export type Database = {
           fiber_per_100g: number | null
           id: string
           image_url: string | null
+          is_out_of_stock: boolean | null
           is_user_created: boolean | null
           name: string
           nutritional_data: Json | null
@@ -163,6 +164,7 @@ export type Database = {
           fiber_per_100g?: number | null
           id?: string
           image_url?: string | null
+          is_out_of_stock?: boolean | null
           is_user_created?: boolean | null
           name: string
           nutritional_data?: Json | null
@@ -185,6 +187,7 @@ export type Database = {
           fiber_per_100g?: number | null
           id?: string
           image_url?: string | null
+          is_out_of_stock?: boolean | null
           is_user_created?: boolean | null
           name?: string
           nutritional_data?: Json | null
@@ -518,6 +521,7 @@ export type Database = {
           id: string
           image_url: string | null
           instructions: string | null
+          is_out_of_stock: boolean | null
           is_public: boolean | null
           name: string
           prep_time: number | null
@@ -534,6 +538,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           instructions?: string | null
+          is_out_of_stock?: boolean | null
           is_public?: boolean | null
           name: string
           prep_time?: number | null
@@ -550,6 +555,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           instructions?: string | null
+          is_out_of_stock?: boolean | null
           is_public?: boolean | null
           name?: string
           prep_time?: number | null

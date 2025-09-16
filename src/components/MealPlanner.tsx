@@ -20,6 +20,7 @@ import {
   Edit3
 } from 'lucide-react';
 import PortionEditor from './PortionEditor';
+import FoodSelector from './FoodSelector';
 
 interface MealPlan {
   id: string;
@@ -88,6 +89,11 @@ export default function MealPlanner() {
       fat: number;
     };
   } | null>(null);
+  const [showFoodSelector, setShowFoodSelector] = useState<{
+    isOpen: boolean;
+    mealId?: string;
+    mealType?: string;
+  }>({ isOpen: false });
 
   const fetchMealPlan = async (date: Date) => {
     if (!user) return;
@@ -309,6 +315,61 @@ export default function MealPlanner() {
     }
   };
 
+  const handleFoodSelected = async (food: any, type: 'food' | 'recipe', mealId: string) => {
+    try {
+      // Calculate nutrition values based on default portion (100g for foods, 1 serving for recipes)
+      let calories = 0;
+      let protein = 0;
+      let carbs = 0;
+      let fat = 0;
+      let quantity = 100;
+      let unit = 'g';
+
+      if (type === 'food') {
+        calories = Math.round((food.calories_per_100g || 0));
+        protein = Math.round((food.protein_per_100g || 0));
+        carbs = Math.round((food.carbs_per_100g || 0));
+        fat = Math.round((food.fat_per_100g || 0));
+      } else {
+        // For recipes, we'd need to calculate based on ingredients and servings
+        // For now, set default values
+        quantity = 1;
+        unit = 'serving';
+        calories = 300; // Default estimate
+      }
+
+      const { error } = await supabase
+        .from('meal_items')
+        .insert([{
+          meal_id: mealId,
+          food_item_id: type === 'food' ? food.id : null,
+          recipe_id: type === 'recipe' ? food.id : null,
+          quantity,
+          unit,
+          calories,
+          protein,
+          carbs,
+          fat,
+        }]);
+
+      if (error) throw error;
+
+      await fetchMealPlan(currentDate);
+      
+      toast({
+        title: "Item added",
+        description: `${food.name} has been added to your meal`,
+      });
+    } catch (error) {
+      console.error('Error adding food to meal:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add item to meal",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -425,7 +486,15 @@ export default function MealPlanner() {
                           {formatNutrition(meal.calories)} cal
                         </Badge>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowFoodSelector({
+                          isOpen: true,
+                          mealId: meal.id,
+                          mealType: meal.meal_type
+                        })}
+                      >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Food
                       </Button>
@@ -484,6 +553,15 @@ export default function MealPlanner() {
           currentUnit={editingPortion.unit}
           foodName={editingPortion.foodName}
           nutritionPer100g={editingPortion.nutritionPer100g}
+        />
+      )}
+      {/* Food Selector Dialog */}
+      {showFoodSelector.isOpen && (
+        <FoodSelector
+          isOpen={showFoodSelector.isOpen}
+          onClose={() => setShowFoodSelector({ isOpen: false })}
+          onFoodSelected={(food, type) => handleFoodSelected(food, type, showFoodSelector.mealId!)}
+          mealType={showFoodSelector.mealType}
         />
       )}
     </div>

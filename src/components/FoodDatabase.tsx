@@ -34,6 +34,7 @@ interface FoodItem {
   serving_size?: number;
   serving_unit?: string;
   is_user_created: boolean;
+  is_out_of_stock?: boolean;
 }
 
 export default function FoodDatabase() {
@@ -187,6 +188,108 @@ export default function FoodDatabase() {
     return value ? Math.round(value * 10) / 10 : 0;
   };
 
+  const toggleStockStatus = async (food: FoodItem) => {
+    if (!user) return;
+
+    try {
+      const newStockStatus = !food.is_out_of_stock;
+      
+      const { error } = await supabase
+        .from('food_items')
+        .update({ is_out_of_stock: newStockStatus })
+        .eq('id', food.id);
+
+      if (error) throw error;
+
+      // Update the selected food and search results
+      setSelectedFood(prev => prev ? { ...prev, is_out_of_stock: newStockStatus } : null);
+      setSearchResults(prev => prev.map(item => 
+        item.id === food.id ? { ...item, is_out_of_stock: newStockStatus } : item
+      ));
+
+      // If marking as out of stock, optionally add to shopping list
+      if (newStockStatus) {
+        await addToShoppingList(food);
+      }
+
+      toast({
+        title: newStockStatus ? "Marked as out of stock" : "Marked as in stock",
+        description: newStockStatus 
+          ? `${food.name} has been marked as out of stock and added to your shopping list`
+          : `${food.name} is now available`,
+      });
+    } catch (error) {
+      console.error('Error updating stock status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update stock status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addToShoppingList = async (food: FoodItem) => {
+    if (!user) return;
+
+    try {
+      // Get or create a default shopping list
+      let { data: shoppingList, error } = await supabase
+        .from('shopping_lists')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_completed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      // Create shopping list if none exists
+      if (!shoppingList) {
+        const { data: newList, error: createError } = await supabase
+          .from('shopping_lists')
+          .insert([{
+            user_id: user.id,
+            name: 'Shopping List',
+            is_completed: false,
+          }])
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        shoppingList = newList;
+      }
+
+      // Check if item already exists in shopping list
+      const { data: existingItem } = await supabase
+        .from('shopping_list_items')
+        .select('id')
+        .eq('shopping_list_id', shoppingList.id)
+        .eq('food_item_id', food.id)
+        .eq('is_purchased', false)
+        .maybeSingle();
+
+      if (!existingItem) {
+        // Add to shopping list
+        const { error: addError } = await supabase
+          .from('shopping_list_items')
+          .insert([{
+            shopping_list_id: shoppingList.id,
+            food_item_id: food.id,
+            name: food.name,
+            quantity: 1,
+            unit: 'item',
+            is_purchased: false,
+          }]);
+
+        if (addError) throw addError;
+      }
+    } catch (error) {
+      console.error('Error adding to shopping list:', error);
+      // Don't show error toast for shopping list issues, as the main action (stock status) succeeded
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -251,9 +354,11 @@ export default function FoodDatabase() {
                     }`}
                     onClick={() => setSelectedFood(food)}
                   >
-                    <div className="flex items-start justify-between">
+                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="font-medium">{food.name}</div>
+                        <div className={`font-medium ${food.is_out_of_stock ? 'text-muted-foreground line-through' : ''}`}>
+                          {food.name}
+                        </div>
                         {food.brand && (
                           <div className="text-sm text-muted-foreground">{food.brand}</div>
                         )}
@@ -266,6 +371,11 @@ export default function FoodDatabase() {
                           {food.is_user_created && (
                             <Badge variant="outline" className="text-xs">
                               User Added
+                            </Badge>
+                          )}
+                          {food.is_out_of_stock && (
+                            <Badge variant="destructive" className="text-xs">
+                              Out of Stock
                             </Badge>
                           )}
                         </div>
@@ -371,12 +481,18 @@ export default function FoodDatabase() {
                 )}
 
                 <div className="flex gap-2 pt-4">
-                  <Button className="flex-1">
+                  <Button 
+                    className="flex-1"
+                    disabled={selectedFood.is_out_of_stock}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add to Meal
+                    {selectedFood.is_out_of_stock ? 'Out of Stock' : 'Add to Meal'}
                   </Button>
-                  <Button variant="outline">
-                    Edit
+                  <Button 
+                    variant={selectedFood.is_out_of_stock ? "default" : "outline"}
+                    onClick={() => toggleStockStatus(selectedFood)}
+                  >
+                    {selectedFood.is_out_of_stock ? 'Mark In Stock' : 'Mark Out of Stock'}
                   </Button>
                 </div>
               </div>
